@@ -1,105 +1,1092 @@
 ---
 name: frontend-code-standards
-description: Ensure high-quality FE coding by enforcing strict type/prop checks, security controls, architectural guidelines (component size limits, state separation), and compliance with project design tokens.
+description: >
+  Principal frontend code standards — project-agnostic.
+  Enforces consistent file naming, import ordering, component structure,
+  TypeScript patterns, Tailwind/CSS, i18n, UTF-8/mojibake avoidance, API layer,
+  state management, and HIG + Material Design 3 platform compliance.
+  Architecture based on netlify-templates/tanstack-template (TanStack Router + TanStack Store + TanStack Start).
+argument-hint: "Optional: 'review' to run checklist on current file, or 'template' to scaffold a new component"
+metadata:
+  author: Principal
+  version: 3.0.0
 ---
 
-# Frontend Code Standards & Quality Guard Skill
+# Frontend Code Standards — Principal
 
-This skill enforces strict standards for React and JavaScript code in the codebase, covering static analysis, security safeguards, and architectural best practices.
+## When to Activate
 
-## Why this skill exists
+- Writing, reviewing, or refactoring `.ts`, `.tsx`, or `.css` files under `src/`
+- Creating new components, pages, hooks, services, or stores
+- Code review or PR preparation
+- Triggered by terms: "format", "conventions", "code style", "clean up imports", "component template"
 
-To ensure the Front-End codebase remains clean, secure, scalable, and visually consistent:
-1. **Type & Prop Safety**: Ensures components have clear contracts, correct imports, and proper prop validations, reducing runtime errors.
-2. **Security & Best Practices**: Eliminates client-side vulnerabilities like XSS, hardcoded secrets, and unvalidated form submissions.
-3. **Architectural Cleanliness**: Enforces strict component size limits, separates server state from UI state, and prevents prop drilling.
-4. **Design Integrity**: Standardizes layout responsive design, safe zone scaling, and component reusability.
+## Project Stack
 
----
-
-## Core Guidelines & Workflow
-
-### 1. Static Validation & Clean Imports (LSP & Module Health)
-When editing or creating React components:
-- **Prop Validation**: Ensure all React components declare prop types, TypeScript interfaces, or JSDoc comments to document props, ensuring clear interfaces.
-- **Import Ordering**: Maintain a clean, consistent import hierarchy:
-  1. React core and hooks.
-  2. Third-party libraries.
-  3. Internal aliases (e.g. `@/config`, `@/lib`, `@/services`, `@/stores`, `@/hooks`, `@/contexts`, `@/models`, `@/components`, `@/utils`).
-  4. Relative imports.
-  5. Style imports.
-- **Direct Imports**: Prefer importing specific exports directly rather than using large barrel files to prevent bundle bloating.
-- **Build Verification**: Before completing any change, run the project's build command (e.g. `npm run build`) to verify the code compiles without bundler warnings or errors.
-
-### 2. Security Guard & Best Practices
-Always check the front-end code for the following security and logger standards:
-- **No Unsafe HTML Rendering (XSS Prevention)**: Never use `dangerouslySetInnerHTML` directly without sanitizing. If rendering HTML is unavoidable, wrap the input using a sanitization function (e.g., DOMPurify or custom sanitizer).
-- **No Hardcoded Secrets**: Scan files to ensure API keys, private URLs, or credentials are NOT hardcoded. They must be fetched from environment variables via `import.meta.env.VITE_*` (Vite) or `process.env.*` (Node/Next).
-- **Form Input Validation**: Validate all inputs at the boundary using clean patterns (e.g., regex patterns, standard validators, or zod schemas if available) to prevent invalid payloads.
-- **Console Log Audit**: Ensure no debug `console.log` statements are left in production paths. Use the project's central logger helper (if available) or clean up logs before committing.
-
-### 3. Architecture & Style Standards
-Ensure components align with the project design architecture and reusable patterns:
-- **Atomic Design Principles (Design & Dev Sync)**:
-  * **Atoms (Nguyên tử)**: The most basic, indivisible UI blocks (e.g., primary buttons, input fields, select boxes, labels, badges). Atoms do not contain other components and are highly reusable.
-  * **Molecules (Phân tử)**: Combinations of two or more atoms (e.g., a search bar with an input and a button atom, or a form group combining a label, input, and validation error).
-  * **Organisms (Sinh vật)**: Complex components composed of molecules and/or atoms (e.g., a Navigation Sidebar, a Dashboard Header, a specific Data Table, or a Card grid). They form distinct sections of the UI.
-  * **Templates (Bản mẫu)**: Page-level skeleton structures or layouts determining where elements are placed.
-  * **Pages (Trang)**: Routed components injecting real data and state into templates.
-- **Strict Component Reusability & DRY Enforcements**:
-  * **Zero Duplication**: Never copy and paste UI styling or structure across multiple pages. If a component (like a custom select, button style, modal dialog, or table row) is used on more than one page, it **must** be extracted into a shared folder (e.g., `/src/components/ui/`, `/src/components/common/`, or `/components/shared/`).
-  * **Global Prop Propagation**: Creating a single source of truth for UI components ensures that when design updates occur, adjusting the shared component updates all views instantly.
-- **Component Structure & Guidelines**:
-  * **File naming**: PascalCase for components and pages, camelCase for hooks/utils/services.
-  * **Size limits**: Keep components under **500 lines of code**. If exceeded, extract logical parts into reusable sub-components in the same feature folder.
-  * **No Prop Drilling**: Maximum 3 layers of prop passing. Lift state to Context Provider or a state store if it exceeds this.
-  * **State Separation**: Use server-state tools (e.g., TanStack Query) for API data, and client-state libraries (e.g., Zustand/Redux) or local state for interactive UI states. Do not duplicate server data in local UI stores.
-- **Design Tokens Adherence**:
-  * Locate the project's design token definitions (e.g., a `DESIGN.md` file, Tailwind config, CSS variables sheet, or theme JSON).
-  * All spacing, typography, colors, and border-radii must follow the project's defined tokens.
-  * **No Arbitrary Styling**: Do NOT use hardcoded hex colors or arbitrary values (e.g. `p-[17px]` or `rounded-[9px]`); instead, map them to the project's spacing scale and border-radius scales.
-- **Mobile-First & Apple Responsive Standards (Apple HIG & Safe Zone Rules)**:
-  * *Mobile-First Styling*: Write base CSS/Tailwind classes for mobile layout first (e.g., full width `w-full`, vertical stacks `flex-col`). Use responsive media queries (e.g. `md:flex-row`, `lg:w-1/2` in Tailwind) to build up complexity for desktop screens. Do NOT write desktop-first styles overridden by `max-width` queries.
-  * *Viewport Configuration*: Ensure the HTML viewport meta tag in `index.html` includes `viewport-fit=cover` (e.g. `<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">`). Without `viewport-fit=cover`, Apple devices will letterbox the content and CSS safe-area environment variables (`env(safe-area-inset-*)`) will resolve to `0`.
-  * *Safe Zone Insets (Safe Area)*: Interactive controls, navigation, and vital text must never overlap Apple's device safe areas (notch/sensor housing, Dynamic Island, or the bottom home indicator pill). Use:
-    * `env(safe-area-inset-top)` for fixed headers, banners, or status bars.
-    * `env(safe-area-inset-bottom)` for bottom navbars, floating action buttons, and fixed footers.
-    * `env(safe-area-inset-left)` and `env(safe-area-inset-right)` to handle iPhone landscape layouts, iPad multitasking splits, or side menus.
-  * *Background Bleeding vs Content Insets*: Background fills, graphics, and overlay containers must extend (bleed) to the physical edges of the display (filling the safe area). However, the actual text, icons, and buttons must be padded inward using safe area variables (e.g., `pb-[env(safe-area-inset-bottom)]`, `pt-[env(safe-area-inset-top)]`).
-  * *Touch Target Targets*: Ensure all buttons, links, toggles, and form controls have a minimum touch target size of **44x44px** (following Apple's Human Interface Guidelines) to guarantee comfortable touch input on mobile.
-  * *Input Zoom Prevention*: Form text inputs and selects must have a font size of at least `16px` (or equivalent body text style) to prevent iOS Safari from automatically zooming into the field upon focus, which breaks layout scaling.
-
-### 4. Self-Criticism & Code Review Workflow
-The AI Agent must perform an active self-review and self-critique phase before applying changes or declaring completion:
-- **Design & Logic Simplification**:
-  * *Simplicity (KISS)*: Can this logic be written simpler? Did I introduce unnecessary local states, redundant re-renders, or overly complex helper functions?
-  * *Refactoring*: Can code chunks be cleaned up, simplified, or consolidated?
-- **DRY & Reuse Critique**:
-  * *Code Duplication*: Am I writing custom code for something that already exists in the codebase (e.g., distance calculations, API services, formatting utils, date formats)?
-  * *UI Reuse*: Did I search for existing shared UI components (Atoms/Molecules) before writing custom layout blocks?
-- **Component Single Responsibility**:
-  * *Separation of Concerns*: Does the component do too many things? (e.g., managing state, calling API hooks, handling pagination, and rendering complex UI all in one file).
-  * *Sub-component Extraction*: If it does, split it. Move server fetching to custom query hooks, and UI panels to sub-components.
-- **Edge Case Analysis**:
-  * *UX Robustness*: Did I handle standard loading states, API error overlays, empty list fallbacks, and button disabling during actions?
-  * *Input Robustness*: Are inputs validated? Does the UI handle long overflow text cleanly without layout breakage?
-- **Code Cleanliness Audit**:
-  * *Debug Cleanups*: Ensure no `console.log`, `debugger`, or temporary mockup values are left.
-  * *Import Health*: Remove all unused imports, dead variables, and redundant comments.
+| Layer | Tech | Version | Notes |
+|-------|------|---------|-------|
+| UI Framework | React | 19.0 | |
+| Build | Vite | 7.0 | |
+| SSR / Server | TanStack Start | 1.157 | `createServerFn` for server-side logic |
+| Routing | TanStack Router | 1.157 | File-based routing |
+| Styling | Tailwind CSS (v4, PostCSS plugin) | 4.x | |
+| Components | shadcn/ui + Radix UI + CVA | latest | |
+| Server State | TanStack Query | 5.x | API fetching + caching |
+| Client State | TanStack Store | 0.8 | |
+| Real-time DB | Convex | 1.20 | Optional; falls back to local store |
+| Forms | React Hook Form + Zod | 7.x / 4.x | |
+| Icons | Lucide React | 0.475+ | |
+| Error Tracking | Sentry (`@sentry/react`) | 9.x | |
+| Path Alias | `@/` → `src/` | — | |
 
 ---
 
-## Verification & Checks Checklist
+## 1. File and Folder Naming
 
-Before declaring a Front-End task complete, perform these checks:
-1. [ ] Component Size: Is the modified component file under 500 lines of code?
-2. [ ] Atomic Alignment: Is the component placed in the correct hierarchy (atoms/molecules in shared directories, pages/organisms in app/feature directories)?
-3. [ ] Reusability & DRY: Did you reuse existing shared UI components instead of creating inline, duplicated elements?
-4. [ ] Token Compliance: Do all styles (colors, fonts, spaces, border-radii) follow the project design tokens without arbitrary values?
-5. [ ] Class Reuse: Did you reuse pre-defined UI classes instead of duplicating styles?
-6. [ ] Responsive & Mobile First: Does the UI follow a Mobile-First layout, include Safe Area Insets, and have a minimum 44x44px touch target on interactive components?
-7. [ ] Prop & Data validation: Are React props documented, and is state correctly separated (Query vs Zustand)?
-8. [ ] Security Check: Are there any un-sanitized dynamic HTML bindings or exposed secret keys?
-9. [ ] Compilation: Does running the build command compile the application cleanly without errors?
-10. [ ] Self-Criticism: Did you review the code changes for simplicity, single responsibility, edge cases, and clean imports?
+```
+src/
+├── routes/                   # TanStack Router — file-based routing
+│   ├── __root.tsx            # Root layout (head, providers, Outlet)
+│   ├── index.tsx             # "/" route — createFileRoute('/')
+│   ├── items.tsx             # "/items" route
+│   ├── items.$itemId.tsx     # "/items/:itemId" dynamic segment
+│   └── _layout/              # Pathless layout routes (optional)
+├── components/               # Shared UI — flat or feature-grouped
+│   ├── ui/                   # lowercase shadcn primitives: button.tsx, card.tsx
+│   ├── feature-a/            # PascalCase feature components: ItemCard.tsx
+│   ├── landing/              # PascalCase feature: HeroVisual.tsx
+│   └── index.ts              # Barrel: re-exports all public components
+├── store/                    # TanStack Store
+│   ├── store.ts              # Store class, State interface, actions, selectors
+│   ├── hooks.ts              # useStore() wrappers + domain hooks
+│   └── index.ts              # Barrel: export * from './store'; export * from './hooks'
+├── config/                   # camelCase: api.ts, breakpoints.ts, brandAssets.ts
+├── contexts/                 # PascalCase: I18nContext.tsx
+├── hooks/                    # camelCase: useFeatureReady.ts, useResponsive.ts
+├── lib/                      # camelCase: queryClient.ts, httpClient.ts
+├── models/                   # camelCase: user.ts, item.ts, filter.ts
+├── services/                 # camelCase+Service: itemService.ts, BaseService.ts
+├── utils/                    # camelCase: logger.ts, formatValue.ts, ai.ts
+├── routeTree.gen.ts          # Auto-generated by TanStack Router — DO NOT EDIT
+└── styles/                   # lowercase: globals.css, fonts.css
+```
 
+**Rules:**
+- Components: `PascalCase.tsx` — route files use lowercase slug: `items.tsx`, `index.tsx`
+- shadcn/ui primitives in `src/components/ui/`: `lowercase.tsx`
+- Dynamic route segments: `$param` notation — `items.$itemId.tsx`
+- Hooks: `use<Name>.ts` (camelCase)
+- Services: `<name>Service.ts` (camelCase)
+- Models: `<domain>.ts` (camelCase) — one file per domain
+- Store files: `store.ts` / `hooks.ts` / `index.ts` inside `src/store/`
+- Tests: co-located, suffix `.test.ts` — `item-service.test.ts`
+- `routeTree.gen.ts`: auto-generated — **never edit manually**
+
+---
+
+## 2. Import Ordering
+
+Imports must be grouped with a blank line between each group:
+
+```typescript
+// 1. React core
+import { useState, useEffect, useMemo, useCallback } from 'react';
+
+// 2. Third-party libraries
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useStore } from '@tanstack/react-store';
+import { useQuery } from '@tanstack/react-query';
+import { createServerFn } from '@tanstack/react-start';
+import { z } from 'zod';
+import { Search, Plus } from 'lucide-react';
+
+// 3. Internal — by layer (config → lib → services → store → hooks → contexts → models → components → utils)
+import { API_ENDPOINTS } from '@/config/api';
+import { queryClient } from '@/lib/queryClient';
+import { itemService } from '@/services/itemService';
+import { store, actions, selectors } from '@/store/store';
+import { useItemsState } from '@/store/hooks';
+import { useI18n } from '@/contexts/I18nContext';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/components/ui/utils';
+import { formatValue } from '@/utils/formatValue';
+
+// 4. Relative imports
+import { ChildComponent } from './ChildComponent';
+
+// 5. Type-only imports
+import type { Item } from '@/models/item';
+import type { FilterOption } from '@/models/filter';
+
+// 6. Styles (rare — usually only in __root.tsx)
+import appCss from '@/styles/globals.css?url';
+```
+
+---
+
+## 3. Component Structure Template
+
+### Regular component (shared UI)
+
+```typescript
+// --- Imports (ordered per section 2) ---
+import { useState, useCallback } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/components/ui/utils';
+import type { Item } from '@/models/item';
+
+// --- Props Interface ---
+interface ItemCardProps {
+  item: Item;
+  isSelected?: boolean;
+  onSelect: (id: string) => void;
+}
+
+// --- Main Component ---
+export function ItemCard({ item, isSelected = false, onSelect }: ItemCardProps) {
+  // 1. Hooks
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 2. Derived values
+  const displayName = item.name || 'Untitled';
+  const hasDetail = Boolean(item.description);
+
+  // 3. Event handlers
+  const handleClick = useCallback(() => {
+    onSelect(item.id);
+  }, [item.id, onSelect]);
+
+  // 4. Return JSX
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      className={cn(
+        'min-h-[44px] rounded-[var(--radius-md)] border border-[var(--color-border)]',
+        'bg-[var(--color-surface)] p-[var(--spacing-sm)] cursor-pointer',
+        'hover:bg-[var(--color-on-surface)]/[0.08]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2',
+        isSelected && 'border-[var(--color-primary)]',
+      )}
+    >
+      <h3 className="text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
+        {displayName}
+      </h3>
+      {hasDetail && (
+        <p className="text-[var(--font-size-sm)] text-[var(--color-text-muted)]">
+          {item.description}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+### Route component (TanStack Router file-based)
+
+```typescript
+// src/routes/items.tsx
+import { createFileRoute } from '@tanstack/react-router';
+import { ItemsView } from '@/components/feature-a/ItemsView';
+
+function ItemsPage() {
+  return <ItemsView />;
+}
+
+// ALWAYS at the bottom — TanStack Router requirement
+export const Route = createFileRoute('/items')({
+  component: ItemsPage,
+});
+```
+
+### Root layout (`src/routes/__root.tsx`)
+
+```typescript
+import { createRootRoute, Outlet, HeadContent, Scripts } from '@tanstack/react-router';
+import appCss from '@/styles/globals.css?url';
+
+export const Route = createRootRoute({
+  head: () => ({
+    meta: [
+      { charSet: 'utf-8' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+    ],
+    links: [{ rel: 'stylesheet', href: appCss }],
+  }),
+  component: () => (
+    <html>
+      <head><HeadContent /></head>
+      <body>
+        <a
+          href="#main-content"
+          className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:z-[9999]
+                     focus-visible:top-4 focus-visible:left-4 focus-visible:px-4 focus-visible:py-2
+                     focus-visible:rounded-md focus-visible:bg-[var(--color-primary)] focus-visible:text-[var(--color-on-primary)]"
+        >
+          Skip to main content
+        </a>
+        <main id="main-content">
+          <Outlet />
+        </main>
+        <Scripts />
+      </body>
+    </html>
+  ),
+});
+```
+
+**Canonical example:** `src/components/ui/button.tsx` — CVA variants + `cn()` + typed props.
+
+---
+
+## 4. TypeScript Conventions
+
+**Interfaces in `src/models/` — one file per domain:**
+```typescript
+// src/models/item.ts
+export interface Item {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+}
+
+// src/models/filter.ts
+export interface FilterOption {
+  value: string;
+  label: string;
+}
+```
+
+**Component props — defined directly above the component:**
+```typescript
+interface ItemListProps {
+  items: Item[];
+  onItemClick: (id: string) => void;
+}
+```
+
+**API generics — in service methods:**
+```typescript
+class ItemService extends BaseService {
+  async getAll(): Promise<Item[]> {
+    return this.get<Item[]>(API_ENDPOINTS.ITEMS);
+  }
+  async getById(id: string): Promise<Item> {
+    return this.get<Item>(`${API_ENDPOINTS.ITEMS}/${id}`);
+  }
+}
+```
+
+**Rules:**
+- `interface` for object shapes; `type` only for unions / intersections / mapped types
+- `import type { ... }` for type-only imports (enables tree-shaking)
+- No `any` — use `unknown` + type narrowing
+- No inline `as` assertions unless unavoidable (e.g., DOM refs)
+
+---
+
+## 5. Tailwind / CSS Conventions
+
+**Use `cn()` for conditional classes:**
+```typescript
+// GOOD
+<div className={cn('p-4 rounded-lg', isActive && 'bg-[var(--color-primary)]')} />
+
+// BAD — manual concatenation
+<div className={`p-4 rounded-lg ${isActive ? 'bg-blue-500' : ''}`} />
+```
+
+**Use design tokens from `src/styles/globals.css @theme`:**
+```typescript
+// GOOD — references project tokens
+'bg-[var(--color-surface)] text-[var(--color-text-primary)] rounded-[var(--radius-md)]'
+
+// ACCEPTABLE — standard Tailwind utilities for spacing/layout
+'p-4 mt-2 flex items-center gap-2'
+
+// BAD — hardcoded hex bypasses the design system
+'bg-[#1a1a1a] text-[#ffffff]'
+```
+
+**Required token categories in `globals.css`:**
+- Colors: `--color-primary`, `--color-surface`, `--color-on-surface`, `--color-text-primary`, `--color-text-muted`, `--color-border`, `--color-error`
+- Spacing: `--spacing-xs` through `--spacing-6xl`
+- Radius: `--radius-sm` through `--radius-full`
+- Shadows / Elevation: `--elevation-0` through `--elevation-5` (see §14j)
+- Typography: `--font-size-xs` (12px) through `--font-size-4xl` (36px)
+- Z-index: `--z-dropdown` through `--z-tooltip`
+- Motion: `--motion-ease-*`, `--motion-duration-*` (see §14f)
+
+**Rules:**
+- No inline `style={{ }}` except for truly dynamic computed values
+- No `@apply` — Tailwind v4 discourages it
+- Icons: `lucide-react` only, no emoji as UI icons
+- All animations require `motion-reduce:transition-none` (see §14f)
+
+---
+
+## 6. API Layer Conventions
+
+Two complementary patterns — choose based on where the logic runs:
+
+### 6a. Server Functions (TanStack Start — preferred for sensitive operations)
+
+Use `createServerFn` when the call needs **server-only secrets** or **SSR data loading**. The function executes on the server; the client calls it like a typed async function.
+
+```typescript
+// src/utils/items.ts
+import { createServerFn } from '@tanstack/react-start';
+import { API_BASE, API_ENDPOINTS } from '@/config/api';
+import type { Item } from '@/models/item';
+
+export const fetchItems = createServerFn({ method: 'GET' })
+  .inputValidator((d: { query: string; page: number }) => d)
+  .handler(async ({ data }) => {
+    const apiKey = process.env.API_SECRET_KEY; // server-only env var
+    const res = await fetch(
+      `${API_BASE}${API_ENDPOINTS.ITEMS}?q=${data.query}&page=${data.page}`,
+      { headers: { Authorization: `Bearer ${apiKey}` } },
+    );
+    return res.json() as Promise<Item[]>;
+  });
+```
+
+```typescript
+// In a route or component
+import { fetchItems } from '@/utils/items';
+const items = await fetchItems({ data: { query: 'react', page: 1 } });
+```
+
+### 6b. Service Layer (client-side REST — for public API calls)
+
+```typescript
+// GOOD — service layer
+import { itemService } from '@/services/itemService';
+const data = await itemService.getAll();
+
+// BAD — raw fetch in component
+const res = await fetch('https://api.example.com/items');
+```
+
+**Creating a new service:**
+```typescript
+// src/services/itemService.ts
+import { BaseService } from './BaseService';
+import { API_BASE, API_ENDPOINTS } from '@/config/api';
+import type { Item } from '@/models/item';
+
+class ItemService extends BaseService {
+  constructor() { super(API_BASE); }
+  async getAll(): Promise<Item[]> {
+    return this.get<Item[]>(API_ENDPOINTS.ITEMS);
+  }
+  async getById(id: string): Promise<Item> {
+    return this.get<Item>(`${API_ENDPOINTS.ITEMS}/${id}`);
+  }
+}
+export const itemService = new ItemService();
+```
+
+**When to use which:**
+
+| Scenario | Pattern |
+|----------|---------|
+| Needs secret API key / DB creds | `createServerFn` |
+| SSR data loading (SEO) | `createServerFn` |
+| Public API, client-side only | Service layer + TanStack Query |
+| Real-time / reactive data | Convex `useQuery` + `useMutation` |
+
+**With TanStack Query:**
+```typescript
+import { useQuery } from '@tanstack/react-query';
+import { itemService } from '@/services/itemService';
+
+function useItems() {
+  return useQuery({
+    queryKey: ['items'],
+    queryFn: () => itemService.getAll(),
+    staleTime: 3 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+```
+
+---
+
+## 7. Reusable Static Assets & External URLs
+
+**Goal:** Any URL/asset used in more than one place lives in **one module**.
+
+| Kind | Where to put it |
+|------|-----------------|
+| API base + paths | `@/config/api` — `API_BASE`, `API_ENDPOINTS` |
+| Env-only values | `.env` + `import.meta.env.VITE_*` — never `process.env` on client |
+| Brand logos, partner images, CDN URLs | `src/config/brandAssets.ts` — named exports |
+| UI chrome icons | `lucide-react` only — not remote URLs |
+
+```typescript
+// src/config/brandAssets.ts
+export const BRAND_LOGO_URL = 'https://cdn.example.com/assets/logo.png' as const;
+export const PARTNER_LOGO_URLS = {
+  acme:  'https://cdn.example.com/partners/acme.svg',
+  globo: 'https://cdn.example.com/partners/globo.svg',
+} as const;
+```
+
+```typescript
+// AnyComponent.tsx
+import { BRAND_LOGO_URL } from '@/config/brandAssets';
+```
+
+**Rules:**
+- Never embed the same `https://…` in multiple components — extract to `brandAssets.ts`
+- Prefer **named exports** so grep and refactors stay clean
+- Check if a similar constant already exists before adding a new one
+
+---
+
+## 8. Internationalization (i18n)
+
+**Principle:** User-visible copy is **data**, not string literals in TSX. Centralize in locale files.
+
+| Item | Convention |
+|------|------------|
+| **Locale files** | `src/locales/en.json` + one file per supported locale (e.g. `vi.json`, `fr.json`) |
+| **Runtime API** | `useI18n()` → `t('key')` — supports nested paths `t('feature.action')` |
+| **Adding strings** | New key must exist in **all** locale files under the same path, in the same PR |
+| **Zod validation** | Use `t('errors.xyz')` for user-visible messages |
+
+**Do not hardcode:**
+- Button labels, headings, placeholders, empty states, toasts, modal titles
+- User-facing error messages (network, validation)
+
+**OK to keep in code:**
+- `aria-label` technical identifiers
+- Console / dev-only strings
+- Test fixtures
+- Dynamic data from API (`item.name`), number/date formatters
+
+```tsx
+// BAD — copy inside component
+<Button>Save changes</Button>
+
+// GOOD
+<Button>{t('common.save')}</Button>
+```
+
+**Key namespace convention:**
+```
+common.*        — shared: save, cancel, close, loading, error
+errors.*        — validation + network errors
+feature-name.*  — scoped to feature: items.*, profile.*, auth.*
+```
+
+**Gradual refactor rule:** When touching an existing file, migrate hardcoded strings in that file to locale keys. Never create a "big-bang i18n cleanup" PR — too much conflict risk. One file at a time.
+
+### Encoding & mojibake
+
+Source of mojibake: copy-paste from PDF/Word, double-encoding, wrong editor encoding.
+
+| Rule | Detail |
+|------|--------|
+| **File encoding** | All `src/**/*.ts(x)`, `*.json`, `*.css` must be **UTF-8** (no BOM) |
+| **Locale JSON** | All locale values must be valid Unicode — verify visually after editing |
+| **Logs / comments** | Prefer ASCII (`[WARN]`, `[ERROR]`) over emoji or special chars that may corrupt |
+| **Review diff** | If diff shows `â€`, `Ã`, `ðŸ` sequences — do not merge; fix encoding first |
+
+---
+
+## 9. State Management Conventions
+
+Three layers — never mix their responsibilities:
+
+### 9a. Server state = TanStack Query
+
+```typescript
+// Read
+const { data: items, isLoading } = useQuery({
+  queryKey: ['items', filters],
+  queryFn: () => itemService.getAll(filters),
+  staleTime: 3 * 60 * 1000,
+});
+
+// Write
+const mutation = useMutation({
+  mutationFn: (payload: NewItem) => itemService.create(payload),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] }),
+});
+```
+
+### 9b. Client state = TanStack Store
+
+Pattern: `Store` class + `actions` map + `selectors` map, consumed via `useStore()`.
+
+```typescript
+// src/store/store.ts
+import { Store } from '@tanstack/store';
+import type { ItemCategory } from '@/models/item';
+
+export interface ItemsState {
+  searchQuery: string;
+  selectedCategories: ItemCategory[];
+  isLoading: boolean;
+}
+
+const initialState: ItemsState = {
+  searchQuery: '',
+  selectedCategories: [],
+  isLoading: false,
+};
+
+export const itemsStore = new Store<ItemsState>(initialState);
+
+export const itemsActions = {
+  setSearchQuery: (q: string) =>
+    itemsStore.setState(s => ({ ...s, searchQuery: q })),
+
+  toggleCategory: (cat: ItemCategory) =>
+    itemsStore.setState(s => ({
+      ...s,
+      selectedCategories: s.selectedCategories.includes(cat)
+        ? s.selectedCategories.filter(c => c !== cat)
+        : [...s.selectedCategories, cat],
+    })),
+
+  setLoading: (isLoading: boolean) =>
+    itemsStore.setState(s => ({ ...s, isLoading })),
+};
+
+export const itemsSelectors = {
+  getSearchQuery:        (s: ItemsState) => s.searchQuery,
+  getSelectedCategories: (s: ItemsState) => s.selectedCategories,
+  getIsLoading:          (s: ItemsState) => s.isLoading,
+};
+```
+
+```typescript
+// src/store/hooks.ts
+import { useStore } from '@tanstack/react-store';
+import { itemsStore, itemsActions, itemsSelectors } from './store';
+
+export function useItemsState() {
+  const searchQuery        = useStore(itemsStore, itemsSelectors.getSearchQuery);
+  const selectedCategories = useStore(itemsStore, itemsSelectors.getSelectedCategories);
+  const isLoading          = useStore(itemsStore, itemsSelectors.getIsLoading);
+  return {
+    searchQuery,
+    selectedCategories,
+    isLoading,
+    setSearchQuery:  itemsActions.setSearchQuery,
+    toggleCategory:  itemsActions.toggleCategory,
+    setLoading:      itemsActions.setLoading,
+  };
+}
+```
+
+```typescript
+// In a component
+import { useItemsState } from '@/store/hooks';
+
+function SearchBar() {
+  const { searchQuery, setSearchQuery } = useItemsState();
+  return <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />;
+}
+```
+
+### 9c. Real-time state = Convex (optional)
+
+```typescript
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
+function ItemList() {
+  const items      = useQuery(api.items.list) ?? [];
+  const createItem = useMutation(api.items.create);
+  return /* ... */;
+}
+```
+
+**Rules:**
+- Never duplicate API data in TanStack Store — Query cache is source of truth
+- Keep state flat — avoid deeply nested objects
+- Always access store via `useStore(store, selector)` — never `store.state` in components
+- Convex: always provide a local-store fallback
+
+---
+
+## 10. Form Conventions
+
+Build the Zod schema inside the component with `useMemo` so `t()` is stable per locale:
+
+```typescript
+import { useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useI18n } from '@/contexts/I18nContext';
+
+function ItemForm() {
+  const { t } = useI18n();
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        name:  z.string().min(1, t('errors.required')),
+        email: z.string().email(t('errors.invalid_email')),
+        count: z.number().positive(),
+      }),
+    [t],
+  );
+
+  type FormData = z.infer<typeof schema>;
+
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  return (
+    <form onSubmit={handleSubmit(data => console.log(data))}>
+      <input {...register('name')} />
+      {errors.name && (
+        <span className="text-[var(--color-error)] text-[var(--font-size-sm)]">
+          {errors.name.message}
+        </span>
+      )}
+    </form>
+  );
+}
+```
+
+---
+
+## 11. Routing Conventions (TanStack Router)
+
+**File-based — each file in `src/routes/` maps to a URL segment:**
+
+| File | URL | Notes |
+|------|-----|-------|
+| `src/routes/__root.tsx` | layout wrapper | Providers, skip link, `<Outlet />` |
+| `src/routes/index.tsx` | `/` | Home |
+| `src/routes/items.tsx` | `/items` | Feature list |
+| `src/routes/items.$itemId.tsx` | `/items/:itemId` | `$` = dynamic segment |
+| `src/routes/_layout/profile.tsx` | `/profile` | Pathless layout route |
+
+**Rules:**
+- Route file = URL path. Never define routes manually in a central config.
+- `routeTree.gen.ts` is **auto-generated** by `@tanstack/router-plugin` — never edit.
+- `export const Route = createFileRoute(...)({ component })` must be **at the bottom** of every route file.
+- Navigation: `useNavigate()` from `@tanstack/react-router`
+- Route params: `Route.useParams()` — Search params: `Route.useSearch()`
+
+```typescript
+// Route with validated search params
+export const Route = createFileRoute('/items')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    page:  Number(search.page  ?? 1),
+    query: String(search.query ?? ''),
+  }),
+  component: ItemsPage,
+});
+
+function ItemsPage() {
+  const { page, query } = Route.useSearch();
+  const { itemId }      = Route.useParams();
+  // ...
+}
+```
+
+---
+
+## 12. Component Barrel Exports
+
+```typescript
+// src/components/index.ts — public API of the components folder
+export { ItemCard }     from './feature-a/ItemCard';
+export { DataTable }    from './feature-a/DataTable';
+export { Sidebar }      from './layout/Sidebar';
+export { WelcomeScreen } from './landing/WelcomeScreen';
+// Do NOT re-export shadcn/ui primitives — import them directly for tree-shaking
+```
+
+```typescript
+// Consuming
+import { ItemCard, DataTable } from '@/components';
+```
+
+**Rules:**
+- Barrel for `src/components/index.ts` and `src/store/index.ts` — keep them lean
+- No barrel for `src/components/ui/` — import shadcn primitives directly
+- No barrel for `src/routes/` — TanStack Router discovers them automatically
+
+---
+
+## 13. Pre-Commit Review Checklist
+
+**Code conventions (§1–12):**
+1. Imports ordered per §2? No unused imports?
+2. Props interface above component? No `any`?
+3. `cn()` for all conditional Tailwind classes?
+4. Design tokens used — no hardcoded hex?
+5. Sensitive API calls via `createServerFn`; public via service layer (§6)?
+6. Server state in TanStack Query / Convex; client state in TanStack Store?
+7. No duplicate state — single source of truth?
+8. Route file has `export const Route = createFileRoute(...)` at the bottom?
+9. `routeTree.gen.ts` untouched?
+10. Remote URLs / logos imported from `@/config/brandAssets` (§7)?
+11. All new UI strings in every locale file (§8) — not hardcoded?
+12. No mojibake (`â€`/`Ã`/`ðŸ`) in source or locale JSON?
+13. Interactive elements have `aria-label`, `role`, keyboard handler?
+14. No `style={{ }}` except truly dynamic computed values?
+15. File named correctly per §1?
+
+**Platform compliance (§14):**
+16. Touch targets ≥ `min-h-11` (44px) on every button/link/icon-button?
+17. WCAG contrast: body text ≥ 4.5:1, heading/UI ≥ 3:1 vs background?
+18. Dark mode: only token vars used — no hardcoded color per mode?
+19. Typography: semantic role used (Display→Caption), no arbitrary px?
+20. State layers: hover 8% / focus 12% / active 12% / disabled 38% on every interactive element?
+21. Every animated element has `motion-reduce:transition-none`? `--motion-*` tokens used?
+22. Bottom-fixed elements have `pb-[env(safe-area-inset-bottom,0px)]`?
+23. Navigation: correct tier — bottom bar (compact) / rail (medium) / drawer (expanded)?
+24. Focus: `focus-visible:ring-2` used, not `:focus`? Skip link in root layout?
+25. Elevation: dialog=`elevation-5`, card=`elevation-1`, FAB=`elevation-3`; no random `shadow-*`?
+
+---
+
+## 14. Platform Design Compliance (HIG + Material Design 3)
+
+> Apply when building web/PWA targeting iOS (Apple HIG) or Android (Material Design 3).
+> All rules use Tailwind v4 + CSS custom properties.
+
+---
+
+### 14a. Touch Targets
+
+| Platform | Minimum | Tailwind |
+|----------|---------|---------|
+| Apple HIG | 44×44pt | `min-h-[44px] min-w-[44px]` = `min-h-11 min-w-11` |
+| Material 3 | 48×48dp | `min-h-[48px] min-w-[48px]` = `min-h-12 min-w-12` |
+| **Project rule** | **44px** | **`min-h-11`** on all button / link / icon-button |
+
+```tsx
+// GOOD
+<button className="min-h-11 min-w-11 px-4 flex items-center justify-center ...">
+  <Search className="h-5 w-5" />
+</button>
+
+// BAD — icon too small to tap
+<button className="p-1"><Search className="h-4 w-4" /></button>
+
+// Icon-only — use transparent padding to meet target size
+<button className="min-h-11 min-w-11 flex items-center justify-center rounded-full">
+  <Settings className="h-5 w-5" />
+</button>
+```
+
+---
+
+### 14b. WCAG Color Contrast (AA)
+
+| Case | Min ratio | Applies to |
+|------|-----------|-----------|
+| Normal text (<18px or <14px bold) | **4.5:1** | Body, Caption, Label, placeholder |
+| Large text (≥18px or ≥14px bold) | **3:1** | Headings, Display |
+| UI components (border, icon, focus ring) | **3:1** | Input borders, meaningful icons |
+| Disabled state | Exempt | `opacity-[0.38]` per Material |
+
+```typescript
+// Check: browser DevTools → Accessibility → Contrast
+// Or: https://webaim.org/resources/contrastchecker/
+
+// Disabled pattern — exempt from contrast requirement:
+<button disabled className="disabled:opacity-[0.38] disabled:pointer-events-none">
+```
+
+---
+
+### 14c. Dark Mode
+
+```css
+/* src/styles/globals.css */
+@theme {
+  /* Default (light or dark — set by project) */
+  --color-surface:           #ffffff;
+  --color-on-surface:        #1a1a1a;
+  --color-primary:           #3b82f6;
+  --color-surface-container: #f4f4f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface:           #121212;
+    --color-on-surface:        #e0e0e0;
+    --color-primary:           #60a5fa;
+    --color-surface-container: #1e1e1e;
+  }
+}
+```
+
+```tsx
+// GOOD — auto-switches with theme
+'text-[var(--color-text-primary)]'
+
+// BAD — hard-coded per mode
+'text-gray-100 dark:text-gray-900'
+```
+
+**Rule:** Every `--color-*` token in `globals.css` must have a dark-mode variant. Never hardcode a color in a component outside a token.
+
+---
+
+### 14d. Typography Semantic Scale
+
+| Role | Material 3 | HIG | Token | Line Height |
+|------|-----------|-----|-------|-------------|
+| Display | Display S (36px) | Large Title (34px) | `--font-size-4xl` | 44px |
+| Headline L | Headline L (32px) | Title 1 (28px) | `--font-size-3xl` | 40px |
+| Headline M | Headline M (28px) | Title 2 (22px) | `--font-size-2xl` | 36px |
+| Title L | Title L (22px) | Title 3 (20px) | `--font-size-xl` | 28px |
+| Title M | Title M (16px, 500) | Headline (17px, 600) | `--font-size-md` + `font-semibold` | 24px |
+| Body L | Body L (16px) | Body (17px) | `--font-size-md` | 24px |
+| Body M | Body M (14px) | Callout (16px) | `--font-size-sm` | 20px |
+| Label L | Label L (14px, 500) | Subhead (15px) | `--font-size-sm` + `font-medium` | 20px |
+| Caption | Body S (12px) | Caption (12px) | `--font-size-xs` | 16px |
+
+```tsx
+// GOOD — semantic
+<h1 className="text-[var(--font-size-4xl)] leading-[44px] font-normal">Display</h1>
+<p  className="text-[var(--font-size-md)] leading-6">Body</p>
+<span className="text-[var(--font-size-xs)] leading-4">Caption</span>
+
+// BAD — arbitrary px
+<h1 className="text-[42px]">Title</h1>
+```
+
+---
+
+### 14e. Interactive State Layers (Material 3)
+
+State layers are **semi-transparent overlays** on top of the component's base color, using the `on-*` color:
+
+| State | Opacity | Tailwind |
+|-------|---------|---------|
+| Hover | 8% | `hover:bg-[var(--color-on-surface)]/[0.08]` |
+| Focus | 12% | `focus-visible:bg-[var(--color-on-surface)]/[0.12]` |
+| Pressed | 12% | `active:bg-[var(--color-on-surface)]/[0.12]` |
+| Dragged | 16% | (pointer drag events only) |
+| Disabled | 38% on content | `disabled:opacity-[0.38] disabled:pointer-events-none` |
+
+```tsx
+// Full interactive element pattern:
+<div
+  role="button"
+  tabIndex={0}
+  className={cn(
+    'relative min-h-[44px] rounded-[var(--radius-md)] cursor-pointer select-none',
+    'bg-[var(--color-surface-container)] text-[var(--color-on-surface)]',
+    'hover:bg-[var(--color-on-surface)]/[0.08]',
+    'focus-visible:outline-none focus-visible:ring-2',
+    'focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2',
+    'active:bg-[var(--color-on-surface)]/[0.12]',
+    isSelected && 'bg-[var(--color-primary)]/[0.12]',
+  )}
+/>
+```
+
+---
+
+### 14f. Motion Tokens (Material 3 + HIG)
+
+```css
+/* src/styles/globals.css @theme */
+@theme {
+  /* Easing curves */
+  --motion-ease-standard:   cubic-bezier(0.2, 0, 0, 1);         /* Most UI transitions */
+  --motion-ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1.0); /* Element enters */
+  --motion-ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);   /* Element exits */
+  --motion-ease-hig:        cubic-bezier(0.4, 0, 0.2, 1);      /* Apple HIG ease-in-out */
+
+  /* Duration tokens */
+  --motion-duration-micro:  100ms;  /* State change: checkbox, toggle */
+  --motion-duration-short:  200ms;  /* Fade in/out, icon morph */
+  --motion-duration-medium: 300ms;  /* Expand/collapse, dialog open */
+  --motion-duration-long:   500ms;  /* Page transition, screen enter */
+}
+```
+
+```tsx
+// GOOD
+<div className={cn(
+  'transition-[transform,opacity]',
+  '[transition-duration:var(--motion-duration-medium)]',
+  '[transition-timing-function:var(--motion-ease-standard)]',
+  'motion-reduce:transition-none',   // MANDATORY
+)} />
+
+// With motion/react:
+<motion.div
+  transition={{ duration: 0.2, ease: [0.05, 0.7, 0.1, 1.0] }}
+  // Add conditional: if user prefers-reduced-motion, skip animation
+/>
+
+// BAD — hardcoded, no reduce-motion
+<div style={{ transition: 'all 0.5s ease' }} />
+```
+
+**Rule:** `motion-reduce:transition-none` or `motion-reduce:animate-none` is **mandatory** on every animated element.
+
+---
+
+### 14g. Safe Area Insets (HIG — iOS Web / PWA)
+
+Required for elements fixed to screen edges (iPhone notch / Dynamic Island / home bar):
+
+```css
+/* src/styles/globals.css */
+.safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-area-top    { padding-top:    env(safe-area-inset-top,    0px); }
+.safe-area-left   { padding-left:   env(safe-area-inset-left,   0px); }
+.safe-area-right  { padding-right:  env(safe-area-inset-right,  0px); }
+```
+
+```tsx
+// Bottom nav — must include safe area
+<nav className="fixed bottom-0 inset-x-0 pb-[env(safe-area-inset-bottom,0px)] h-16 bg-[var(--color-surface-container)]">
+
+// Snackbar / Toast
+<div className="fixed bottom-6 left-1/2 -translate-x-1/2 mb-[env(safe-area-inset-bottom,0px)]">
+```
+
+Note: `viewport-fit=cover` is already in the root layout template (§3).
+
+---
+
+### 14h. Adaptive Breakpoints — 3 tiers (Material 3)
+
+| Tier | Range | Navigation pattern | Grid columns |
+|------|-------|--------------------|-------------|
+| **Compact** | 0–599px | Bottom navigation bar | 4 |
+| **Medium** | 600–1239px | Navigation rail | 8 |
+| **Expanded** | ≥1240px | Navigation drawer | 12 |
+
+```typescript
+// src/config/breakpoints.ts
+export const BREAKPOINTS = {
+  compact:  0,     // default (no prefix)
+  medium:   600,   // Tailwind sm: 640px ≈ boundary
+  expanded: 1240,  // Tailwind xl: 1280px ≈ boundary
+} as const;
+```
+
+```tsx
+// src/components/navigation/AppNavigation.tsx
+export function AppNavigation({ items }: { items: NavItem[] }) {
+  return (
+    <>
+      {/* Compact — bottom bar */}
+      <nav className="sm:hidden fixed bottom-0 inset-x-0
+                      pb-[env(safe-area-inset-bottom,0px)] h-16
+                      flex justify-around items-center
+                      bg-[var(--color-surface-container)]
+                      border-t border-[var(--color-border)]">
+        {items.map(item => <BottomNavItem key={item.to} {...item} />)}
+      </nav>
+
+      {/* Medium — navigation rail */}
+      <nav className="hidden sm:flex xl:hidden fixed inset-y-0 left-0 w-20
+                      flex-col items-center gap-1 pt-4
+                      bg-[var(--color-surface-container)]">
+        {items.map(item => <RailItem key={item.to} {...item} />)}
+      </nav>
+
+      {/* Expanded — navigation drawer */}
+      <nav className="hidden xl:flex fixed inset-y-0 left-0 w-64
+                      flex-col gap-1 p-3
+                      bg-[var(--color-surface-container)]">
+        {items.map(item => <DrawerItem key={item.to} {...item} />)}
+      </nav>
+    </>
+  );
+}
+```
+
+---
+
+### 14i. Focus Management (HIG + WCAG 2.1)
+
+```tsx
+// Standard focus ring — all interactive elements
+const focusRing = [
+  'outline-none',
+  'focus-visible:ring-2',
+  'focus-visible:ring-[var(--color-primary)]',
+  'focus-visible:ring-offset-2',
+  'focus-visible:ring-offset-[var(--color-surface)]',
+].join(' ');
+
+// Focus trap in custom modals (Radix Dialog handles this automatically)
+// import { FocusScope } from '@radix-ui/react-focus-scope';
+
+// Focus restoration after dialog close
+function useFocusRestore() {
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const open  = useCallback((el: HTMLElement) => { triggerRef.current = el; }, []);
+  const close = useCallback(() => { triggerRef.current?.focus(); }, []);
+  return { open, close };
+}
+```
+
+Skip link is already in the root layout template (§3).
+
+---
+
+### 14j. Elevation System — Semantic Levels (Material 3)
+
+```css
+/* src/styles/globals.css @theme */
+@theme {
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --elevation-2: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --elevation-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px 0 rgb(0 0 0 / 0.3);
+  --elevation-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.3);
+  --elevation-5: 0 8px 12px 6px rgb(0 0 0 / 0.15), 0 4px 4px 0 rgb(0 0 0 / 0.3);
+}
+```
+
+| Token | dp | Use for |
+|-------|----|---------|
+| `elevation-0` | 0dp | Flat backgrounds, list rows |
+| `elevation-1` | 1dp | **Cards** (default), outlined inputs |
+| `elevation-2` | 3dp | Chips, elevated buttons, app bar (scrolled) |
+| `elevation-3` | 6dp | **FAB**, tooltip, collapsed bottom sheet |
+| `elevation-4` | 8dp | Navigation drawer (overlay) |
+| `elevation-5` | 12dp | **Dialogs**, modals, popups, snackbars |
+
+```tsx
+// GOOD — semantic level
+<div className="shadow-[var(--elevation-1)]">Card</div>
+<dialog className="shadow-[var(--elevation-5)]">Modal</dialog>
+
+// BAD — random Tailwind shadow
+<div className="shadow-xl">Card</div>
+```
+
+---
+
+## Delegation to Other Skills
+
+This skill covers **code conventions only**. For deeper topics:
+
+- **i18n runtime** — `useI18n()` context + locale files in `src/locales/`
+- **TanStack Router advanced** — loaders, deferred data, code splitting: tanstack.com/router
+- **TanStack Start SSR** — streaming, middleware, server actions: tanstack.com/start
+- **React performance** — memoization, bundle splitting, waterfalls
+- **Component composition** — compound components, render props, provider pattern
+- **UI/UX design process** — design system, visual checklist: `ui-ux-pro-max` skill
+- **Design tokens** — token architecture, CSS variable layers: `design-system` skill
+- **Styling / shadcn** — dark mode, responsive utilities: `ui-styling` skill
+- **Convex backend** — schema `convex/schema.ts`, queries/mutations `convex/*.ts`: convex.dev/docs
