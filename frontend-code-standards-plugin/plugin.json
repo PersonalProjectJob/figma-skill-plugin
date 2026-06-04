@@ -1,5 +1,5 @@
 {
   "name": "frontend-code-standards-plugin",
-  "version": "1.0.0",
-  "description": "Plugin for enforcing strict front-end coding quality standards, including type safety, XSS security, component sizes, state separation, and design token compliance."
+  "version": "3.0.0",
+  "description": "Principal frontend code standards \u2014 project-agnostic. TanStack Router + TanStack Store + TanStack Start architecture. HIG + Material Design 3 platform compliance (touch targets, WCAG AA, dark mode, motion tokens, adaptive breakpoints, elevation system)."
 }
