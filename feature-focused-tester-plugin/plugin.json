@@ -1,5 +1,5 @@
 {
   "name": "feature-focused-tester-plugin",
-  "version": "1.0.0",
-  "description": "Plugin for planning, writing, and executing automation tests targeted specifically at a newly added or modified feature, and validating code changes using static analysis."
+  "version": "1.1.0",
+  "description": "Plugin for planning, writing, and executing tests targeted at a modified feature via a 3-layer flow that mirrors the data boundary: Layer 1 Test UI (render/states/responsive), Layer 2 Test call API (data hooks -> repositories -> adapters, query keys + mutation invalidation), Layer 3 Test flow (E2E). Produces test_plan.md / walkthrough.md and reports QA to Telegram Thread 735."
 }

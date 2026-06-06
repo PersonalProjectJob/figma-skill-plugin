@@ -1,5 +1,5 @@
 {
   "name": "frontend-code-standards-plugin",
-  "version": "3.0.0",
-  "description": "Principal frontend code standards \u2014 project-agnostic. TanStack Router + TanStack Store + TanStack Start architecture. HIG + Material Design 3 platform compliance (touch targets, WCAG AA, dark mode, motion tokens, adaptive breakpoints, elevation system)."
+  "version": "3.1.0",
+  "description": "Principal frontend code standards for a React 18 + Vite (JS/JSX) app. Enforces the data boundary (components -> data hooks -> repositories -> adapters), JSDoc prop documentation, server/UI state separation (TanStack Query + React Context, no Zustand/Redux), security controls, component size limits, design-token compliance, and Apple HIG mobile responsive rules."
 }
