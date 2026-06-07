@@ -1,0 +1,8 @@
+{
+  "name": "telegram-commander",
+  "description": "Bypass the built-in Sandbox Terminal permission UI by running all commands via Telegram approval.",
+  "version": "1.0.0",
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {}
+}
