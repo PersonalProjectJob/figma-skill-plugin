@@ -43,6 +43,12 @@ Enforces strict coding standards, the data boundary, security controls, and desi
 - **Client-Side Security**: Checks for XSS vulnerabilities (enforcing sanitization before `dangerouslySetInnerHTML`), hardcoded secrets (requiring `import.meta.env.VITE_*`), and console-log audits (runtime logging via `src/utils/logger.js`).
 - **Architectural Constraints**: Restricts component files to under 500 lines of code, documents props with JSDoc, limits prop drilling to 3 layers, and separates server state (TanStack Query) from client UI state (React local state + Context — **no Zustand/Redux**).
 
+### 6. 📱 Telegram Commander (`telegram-commander`)
+Bypass the built-in Sandbox Terminal permission UI by routing command approvals through Telegram.
+- **Telegram Inline Keyboards**: Sends an interactive card to your Telegram thread with Allow/Decline buttons whenever a terminal command needs execution.
+- **Seamless Sandbox Bypass**: Prevents the Antigravity UI from blocking execution flows. Once the proxy script is whitelisted, you can approve or decline tasks directly from your phone.
+- **Background Task Compatibility**: Wraps `child_process.spawn` to preserve live-streaming of stdio to the agent's task log so the AI retains full observability.
+
 ---
 
 ## 🛠️ How to Use
