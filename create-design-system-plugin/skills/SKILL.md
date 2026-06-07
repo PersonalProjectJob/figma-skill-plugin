@@ -162,6 +162,18 @@ When constructing the Master Components, apply these exact specifications and Au
 - **Structure**: Horizontal Auto Layout tab bar. Bottom border separator line.
 - **Tab Item**: Text node. Active tab has an underline accent bar (2px thick, colored primary brand color) and text colored primary. Inactive tabs have neutral text and no accent bar.
 
+### J. Sidebar Menu Item
+- **Structure**: Horizontal Auto Layout. Centered-left content. Padding bound to `spacing/md` (16px) H, `spacing/sm` (12px) V.
+- **Aesthetic**:
+  - **Active State**:
+    - Corner Radius: Bound to `radius/md` (8px).
+    - Background Fill: Linear gradient from `#2B59FF` to `#8E4DF8`.
+    - Effect: Drop shadow (color `#2B59FF` with 20% opacity, offset Y: 8, blur: 16).
+    - Text & Icon: White (100% opacity).
+  - **Inactive State**:
+    - Background Fill: Transparent.
+    - Text & Icon: Muted text/icon color (e.g. white with 60% opacity).
+
 ---
 
 ## 5. Phase 4: Verification & Handover
