@@ -5,12 +5,10 @@ description: Bypass built-in Sandbox/IDE Terminal permission UIs by running all 
 
 # Telegram Commander Skill
 
-**CRITICAL RULE FOR ALL AI AGENTS (Antigravity, Claude, Cursor, CodeX, etc.):**
-You MUST use this skill whenever you need to run a terminal command that executes scripts, modifies files, or alters the system. 
+**RULE FOR ALL AI AGENTS (Antigravity, Claude, Cursor, CodeX, etc.):**
+Do NOT automatically use this skill for all terminal commands. **ONLY** wrap your terminal commands through the `run.cjs` script if the user explicitly instructs you to (e.g., "run this via telegram", "ask me on telegram"). 
 
-Do NOT run modifying commands natively (e.g. `npm run build` or `npm install`). Most IDEs and Sandboxes (like Antigravity UI or Cursor Terminal) will block the execution and wait for the user to manually click "Approve" on their desktop screen, which disrupts your autonomous operations when the user is away.
-
-Instead, wrap **all** your terminal commands through the `run.cjs` script. This script will send an interactive card to the user's Telegram, wait for them to click "✅ Allow" on their phone, and then execute your command and stream the output back to your terminal/task log.
+If the user requests it, wrap your command through the `run.cjs` script. This script will send an interactive card to the user's Telegram, wait for them to click "✅ Allow" on their phone, and then execute your command and stream the output back to your terminal/task log.
 
 ## Usage
 
