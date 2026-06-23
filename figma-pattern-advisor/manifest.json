@@ -1,0 +1,12 @@
+{
+  "name": "AI Pattern Advisor",
+  "id": "1234567890",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "The plugin allows users to configure and connect to any custom LLM endpoint, requiring open network access."
+  }
+}

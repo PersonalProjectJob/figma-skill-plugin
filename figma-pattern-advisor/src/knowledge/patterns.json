@@ -1,0 +1,53 @@
+[
+  {
+    "patternId": "pattern.p2p.waiting_acceptance",
+    "name": "Waiting Acceptance Pattern",
+    "version": "1.4.0",
+    "componentKey": "",
+    "signals": {
+      "waiting": 10,
+      "acceptance": 10,
+      "pending": 8,
+      "chờ": 5,
+      "chấp nhận": 5,
+      "countdown": 8
+    },
+    "requiredAnatomy": ["Status Header", "Countdown Timer", "Role-Based Actions"],
+    "antiPatterns": ["Empty State", "Generic card without countdown"],
+    "explanation": "Detected keywords indicating a pending or waiting state (e.g., 'waiting', 'countdown')."
+  },
+  {
+    "patternId": "pattern.form.submission",
+    "name": "Form Submission Pattern",
+    "version": "2.1.0",
+    "componentKey": "",
+    "signals": {
+      "submit": 10,
+      "form": 8,
+      "input": 5,
+      "button": 2,
+      "nộp": 8,
+      "gửi": 8
+    },
+    "requiredAnatomy": ["Form Fields", "Primary Action Button", "Validation Feedback"],
+    "antiPatterns": ["Missing error states", "Multiple primary buttons"],
+    "explanation": "Detected form elements and submission actions."
+  },
+  {
+    "patternId": "pattern.modal.confirmation",
+    "name": "Confirmation Modal",
+    "version": "1.0.2",
+    "componentKey": "",
+    "signals": {
+      "confirm": 10,
+      "are you sure": 10,
+      "cancel": 5,
+      "xác nhận": 10,
+      "hủy": 5,
+      "modal": 8
+    },
+    "requiredAnatomy": ["Title", "Description", "Primary Action (Destructive/Safe)", "Cancel Action"],
+    "antiPatterns": ["Vague title", "No way to cancel"],
+    "explanation": "Detected confirmation dialog patterns and actions."
+  }
+]

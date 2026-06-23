@@ -50,6 +50,13 @@ Bypass built-in Sandbox/IDE Terminal permission UIs by routing command approvals
 - **Background Task Compatibility**: Wraps `child_process.spawn` to preserve live-streaming of stdio to the agent's task log so the AI retains full observability.
 - **Agent Independence**: The core `run.cjs` script is pure Node.js and relies on OS-level process blocking, meaning it halts execution for *any* AI assistant until Telegram approval is received.
 
+### 7. 🧩 Figma Pattern Advisor (`figma-pattern-advisor`)
+A full-fledged Figma plugin designed to audit, recommend, and insert strictly compliant Design System patterns directly inside Figma.
+- **Context-Aware Audits**: Automatically analyzes the user's selected design layers and compares their text, naming, and anatomy against predefined Enterprise Patterns (Atoms, Molecules, Organisms).
+- **LLM-Powered Matching**: Uses a local or cloud LLM (Gemini, Claude, OpenAI) to semantically match raw UI selections to the correct canonical design system component.
+- **One-Click Insert & Perfecting**: Allows designers to instantly replace non-compliant "mock" layers with the pixel-perfect, interactive React-ready Design System component, placed perfectly alongside the original.
+- **Web Demo Included**: Comes with a standalone React Web Demo that simulates the Figma canvas environment (with native scrollbars and node dragging) to let you test the plugin's UI and audit logic outside of Figma.
+
 ---
 
 ## 🛠️ How to Use
