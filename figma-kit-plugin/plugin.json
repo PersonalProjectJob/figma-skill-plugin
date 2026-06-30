@@ -1,5 +1,5 @@
 {
   "name": "figma-kit-plugin",
   "version": "1.0.0",
-  "description": "Plugin for generating Figma UI Kits with professional design systems, Auto Layout, and component libraries."
+  "description": "Plugin for synchronizing Figma flows with design-system components, Dev Mode friendly Auto Layout, and missing master component creation."
 }

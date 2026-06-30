@@ -16,11 +16,12 @@ Automates the extraction and creation of a Figma Design System based on the code
 - **Strict Token Adherence**: Ensures every color, padding, gap, and size maps directly to a defined token.
 
 ### 2. ⚡ Generate Figma Kit (`generate-figma-kit`)
-Assembles and synchronizes pixel-perfect, highly responsive user interfaces directly in Figma.
-- **Component-Driven Assembly**: Instantiates buttons, input fields, modals, and other complex widgets from the project's local component library instead of drawing raw shapes.
-- **Token Synchronization**: Binds all properties (fills, strokes, text styles, padding, and border radius) to existing Figma variables and styles to prevent hardcoding.
-- **Strict Auto Layout**: Configures correct parent Auto Layout rules, alignments, gap variables, and constraints (`Fill Container` / `Hug Contents`).
-- **Robust Sizing & Wrapping**: Resolves layout clipping and configures text layer wrapping dynamically.
+Audits and synchronizes Figma product flows so they are ready for Dev Mode and agentic design-to-code through figma-console MCP.
+- **Design-System Synchronization**: Searches existing local/library components first, then applies shared instances across repeated flow screens.
+- **Missing Master Components**: Creates flow-specific master components when a reusable pattern is missing, such as headers, hero sections, tabs, rows, filter bars, empty states, and bottom sheets.
+- **Dev Mode Auto Layout**: Converts repeated UI into meaningful Auto Layout hierarchy where the root component is the real container and text lives inside its chip/card/row.
+- **Instance Application**: Replaces duplicated manual layers with component instances while preserving text overrides through component properties.
+- **Regression QA**: Screenshots changed masters and target flows, checking clipping, incorrect wrapping, overlay labels, variant bounds, and component-instance consistency.
 
 ### 3. 🖼️ Remove Background Graphic (`remove-background-graphic`)
 Streamlines the creation and editing of graphical assets and illustrations inside Figma.
