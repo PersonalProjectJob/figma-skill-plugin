@@ -1,10 +1,63 @@
 ---
 name: create-design-system
-description: Act as a Senior Design System Engineer to extract styles and components from the codebase, align them consistently, and create a comprehensive Figma Design System (Variables, Styles, Components) using figma-console MCP.
+description: Act as a Senior Design System Engineer to audit, standardize, and evolve Figma Variables, Styles, and Components from a codebase using figma-console MCP. Use for design-system creation, token architecture, Light/Dark semantic aliasing, variable-mode cleanup, reusable UI kits, and safe Figma design-system migrations.
 ---
 # Figma Design System Creator & Sync Specialist
 
 You are an expert Design System Engineer. Your role is to analyze a codebase, extract style foundations and component structures, align them for absolute visual consistency, and build a matching design system (Variables, Styles, and Master Components) in Figma using the `figma-console` MCP server.
+
+---
+
+## 0. Phase 0: File Safety, Variable Audit, and Migration Plan
+
+Before changing Figma Variables or components:
+
+1. Call `figma_get_status` and confirm the active file name/key match the requested file. When a URL is supplied or multiple files are connected, call `figma_navigate` first. Never assume the currently active Desktop Bridge file is correct.
+2. Call `figma_search_components` at the start of the session, then call `figma_get_variables` or `figma_execute` to inventory collections, modes, variable counts, names, aliases, scopes, and existing bindings.
+3. Record the current collection and mode structure before mutation. Treat existing component bindings and variable IDs as production contracts.
+4. Make a short migration plan before writing: preserve existing resolved values and component bindings; add foundations first; then replace semantic values with aliases only after verifying the alias resolves to the same visible value.
+
+### Variable Mode Rules
+
+- Create modes only when the design system explicitly requires them.
+- Use one `Value` mode for primitive and measure collections by default.
+- Use `Light` and `Dark` only on the semantic collection when the UI has themes.
+- Before adding a mode, inspect `collection.modes`; never add a duplicate or unnamed `Mode` column.
+- If duplicate modes already exist, remove only modes proven redundant after confirming that `Light` and `Dark` remain. Re-audit the collection immediately after removal.
+
+### Canonical Collection Architecture
+
+```text
+0. Primitives       Value
+  color/01 Neutral/0, 50 ... 950, 1000
+  color/02 Indigo/50 ... 950
+  color/03 Amber/50 ... 950
+  color/04 Emerald/50 ... 950
+  color/05 Red/50 ... 950
+  color/06 Blue/50 ... 950
+  color/07 Gold/50 ... 950
+
+1. Semantics        Light, Dark
+  color/01 Background/*
+  color/02 Text/*
+  color/03 Border/*
+  color/04 Action/*
+  color/05 Status/*
+  color/06 Brand/*
+  color/07 Neutral/*
+  color/08 Effect/*
+
+2. Measures         Value
+  spacing/*
+  radius/*
+  font/*
+  opacity/*
+  effect/*
+```
+
+Primitive groups represent source palettes, not UI use. Use numeric scales (`50` through `950`) instead of labels such as `Light` or `Darker`; reserve `500` for the main color. Semantic tokens represent UI purpose and must alias primitives. A theme may map `Action/Primary` to Indigo `500` in Light and Amber `500` in Dark.
+
+For an established file that mixes semantic and measure variables, preserve the existing collection and bindings. Add the primitive collection first; migrate measures into a separate collection only as an explicitly planned compatibility migration.
 
 ---
 
@@ -35,7 +88,8 @@ Compare the extracted codebase styles and components. Resolve any inconsistencie
 
 ### A. Style Foundation Standardization
 Standardize the design token schema before creating it in Figma:
-- **Colors**: Set up a semantic hierarchy (Canvas/Surface, Foreground/Text, Accents/Status) for both Light and Dark modes.
+- **Colors**: Build numeric primitive ramps first, then map a semantic hierarchy (Background, Text, Border, Action, Status, Brand, Neutral, Effect) for Light and Dark modes. Do not use raw palette colors directly in UI components.
+- **Alias integrity**: When introducing aliases to an existing semantic token, resolve and compare its current Light/Dark value with the intended primitive step before writing. Preserve alpha variants, overlays, glass effects, and chart/data colors as separate tokens when a plain palette step cannot represent the same value.
 - **Typography Scale**: Align codebase font sizes to a clean typographic scale:
   - *Display*: 32px (Line height 40px)
   - *Heading 1*: 24px (Line height 32px)
@@ -61,14 +115,18 @@ Ensure all codebase components match the standardized styles:
 Use the `figma-console` MCP server to construct the standardized design system in Figma:
 
 ### Step 3.1: Create Variable Collections (Figma Variables)
-Create variable collections to manage design tokens across different modes.
-- **Batch Collections Setup**: Use `figma_setup_design_tokens` to create a complete token system atomically:
-  - Define collection name (e.g. `"Brand Tokens"` or `"Design System"`).
-  - Define modes (e.g., `["Light", "Dark"]`).
-  - Create Color variables (background, text, border, status colors) mapped to specific hex values for each mode.
-  - Create Float variables for Spacing/Padding, Corner Radius, and Icon sizes.
-- **Updates & Additions**: Use `figma_batch_create_variables` or `figma_batch_update_variables` for performant bulk operations.
+Create and evolve variable collections in dependency order:
 
+1. Create `0. Primitives` with exactly one `Value` mode. Add palette families and numeric color steps with batch tools or a single `figma_execute` transaction.
+2. Create `1. Semantics` with `Light` and `Dark` only. Define purpose-based colors and alias each mode to primitives. Bind components to semantics, never directly to primitives.
+3. Create `2. Measures` with exactly one `Value` mode for spacing, radius, font metrics, opacity, effects, and sizes.
+4. For an existing file, do not recreate variables that components already bind to. Add primitives, then replace semantic values with aliases one mode at a time only when the resolved result is unchanged.
+
+Use `figma_batch_create_variables` and `figma_batch_update_variables` for standard bulk changes. Use one `figma_execute` transaction when aliases, collection APIs, or a guarded migration require direct Figma API calls.
+
+After every variable mutation, audit collection names, mode names and counts, expected variable counts by group, duplicate or malformed names, alias targets, unresolved aliases, and expected Light/Dark resolved values.
+
+If `figma_take_screenshot` is unavailable because the REST token has expired, report the limitation and validate structurally through the Desktop Bridge API instead. Do not claim visual validation from a failed screenshot request.
 ### Step 3.2: Create Typography Styles
 Create text styles in Figma matching the typography scale.
 - Set font family, size, line height, and font weight for each typographic scale role.
@@ -178,7 +236,8 @@ When constructing the Master Components, apply these exact specifications and Au
 
 ## 5. Phase 4: Verification & Handover
 
-1. **Visual Audit**: Call `figma_take_screenshot` to visually inspect all created variables, styles, and components.
-2. **Linting Check**: Call `figma_lint_design` to ensure no loose elements or hardcoded colors exist.
-3. **Figma Console Logs**: Call `figma_get_console_logs` to ensure there are no error reports or warning messages from the canvas API.
-4. **Documentation**: Document the created component names, variant properties, and variable mappings, verifying that they align with the codebase.
+1. **Variable audit**: Confirm the active file, collection names, exact mode counts, variable counts, naming hierarchy, alias targets, and resolved Light/Dark values.
+2. **Visual audit**: Call `figma_take_screenshot` to inspect created canvases, styles, and components. If the REST token is expired, state that visual export is unavailable and use direct Desktop Bridge structural validation instead.
+3. **Linting check**: Call `figma_lint_design` to ensure no loose elements or hardcoded colors exist.
+4. **Console logs**: Call `figma_get_console_logs` to check for canvas API errors or warnings.
+5. **Handover**: Document collection architecture, modes, palette scales, semantic mappings, alias count, component names, and remaining migration risks.
