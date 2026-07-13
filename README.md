@@ -58,6 +58,14 @@ A full-fledged Figma plugin designed to audit, recommend, and insert strictly co
 - **One-Click Insert & Perfecting**: Allows designers to instantly replace non-compliant "mock" layers with the pixel-perfect, interactive React-ready Design System component, placed perfectly alongside the original.
 - **Web Demo Included**: Comes with a standalone React Web Demo that simulates the Figma canvas environment (with native scrollbars and node dragging) to let you test the plugin's UI and audit logic outside of Figma.
 
+### 8. 🔌 Figma Desktop Bridge — Multi-Port (`figma-desktop-bridge-multiport`)
+Enhanced fork of the [figma-console-mcp](https://github.com/southleft/figma-console-mcp) Desktop Bridge plugin with **multi-port selection** support. Solves the limitation where 2 Figma files cannot each connect to a separate MCP server instance.
+- **Port Selector UI**: When multiple MCP servers are detected on ports 9223–9232, displays a radio-button selector showing each server's label, version, uptime, and connected files — instead of auto-connecting to all.
+- **Per-File Port Preference**: The user's chosen port is persisted via Figma `clientStorage` per-file, so the plugin auto-reconnects to the same server on reload.
+- **Server Labels**: Configurable via `FIGMA_SERVER_LABEL` env var (e.g., `"Cursor"`, `"Claude Code"`) — shown in the selector for easy identification.
+- **Backward Compatible**: When only 1 server is found, auto-connects silently (zero-click, identical to original behavior).
+- **Enhanced `/health` Endpoint**: Server-side change adds `serverLabel`, `connectedFiles`, and `port` fields to the health JSON response.
+
 ---
 
 ## 🛠️ How to Use
