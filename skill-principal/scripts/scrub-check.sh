@@ -39,14 +39,16 @@ DENYLIST=(
   "id vận hành|Thread [0-9]{3}|\(#5[0-9]\)"
   "epic nội bộ|community-341"
   "codename model nội bộ|gpt-5\.[0-9]+-(sol|terra|luna)"
-  "email/credential|@gmail|@vlink|(api_secret|password|token)[[:space:]]*[:=][[:space:]]*[^<[:space:]]|Bearer [A-Za-z0-9]{8,}"
+  "email/credential|@gmail|@vlink|(api_secret|api_key|password|token)[[:space:]]*[:=][[:space:]]*['"'"'\"][^'"'"'\"<$]{8,}|Bearer [A-Za-z0-9]{8,}|[0-9]{8,10}:[A-Za-z0-9_-]{30,}"
 )
 
 fail=0
 for entry in "${DENYLIST[@]}"; do
   label="${entry%%|*}"
   pattern="${entry#*|}"
-  hits=$(grep -rInE --exclude-dir=.git --exclude="scrub-check.sh" "$pattern" "${TARGETS[@]}" 2>/dev/null)
+  # Bỏ qua bundle sinh tự động: chúng build từ src (đã quét), và code minified
+  # match ngẫu nhiên mọi pattern credential -> nhiễu tới mức gate thành vô dụng.
+  hits=$(grep -rInE --exclude-dir=.git --exclude-dir=dist --exclude-dir=build     --exclude-dir=node_modules --exclude="*.min.*" --exclude="scrub-check.sh"     "$pattern" "${TARGETS[@]}" 2>/dev/null)
   if [ -n "$hits" ]; then
     echo "FAIL [$label]"
     echo "$hits" | sed 's/^/    /'
