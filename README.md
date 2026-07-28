@@ -34,7 +34,7 @@ Plans, writes, and executes tests targeted at a modified feature through a **3-l
 - **Layer 1 — Test UI**: Vitest + Testing Library render assertions (default/empty/loading/error/props) plus browser-MCP screenshots for desktop/mobile responsive proof.
 - **Layer 2 — Test call API (data boundary)**: tests the data layer (`data hooks -> repositories -> adapters`) — query keys, **mutation cache invalidation**, normalized object shapes, and storage-vs-api transport.
 - **Layer 3 — Test flow (E2E)**: targeted end-to-end user-flow verification (login -> seed -> navigate -> act -> side-effects) via the project E2E runner and the browser MCP.
-- **Reporting**: produces `test_plan.md` (cases by layer + P0–P3 priority with a Definition-of-Done gate) and `walkthrough.md`, and routes QA results to Telegram Thread 735. (Design-token compliance is delegated to the `frontend-code-standards` plugin.)
+- **Reporting**: produces `test_plan.md` (cases by layer + P0–P3 priority with a Definition-of-Done gate) and `walkthrough.md`, and routes QA results to Telegram Thread <qa-thread-id>. (Design-token compliance is delegated to the `frontend-code-standards` plugin.)
 
 ### 5. 🛡️ Frontend Code Standards (`frontend-code-standards`)
 Enforces strict coding standards, the data boundary, security controls, and design-to-dev synchronization for a React 18 + Vite (JS/JSX) app.
@@ -65,6 +65,16 @@ Enhanced fork of the [figma-console-mcp](https://github.com/southleft/figma-cons
 - **Server Labels**: Configurable via `FIGMA_SERVER_LABEL` env var (e.g., `"Cursor"`, `"Claude Code"`) — shown in the selector for easy identification.
 - **Backward Compatible**: When only 1 server is found, auto-connects silently (zero-click, identical to original behavior).
 - **Enhanced `/health` Endpoint**: Server-side change adds `serverLabel`, `connectedFiles`, and `port` fields to the health JSON response.
+
+### 9. 🎛️ Skill Principal — Multi-Agent Orchestration Rules (`skill-principal`)
+A file-based orchestration layer for running **three AI coding agents in parallel** (Claude / Codex / Gemini) on one codebase — 1005 lines of markdown, zero dependencies. Not Figma-related; this one is about how work is routed, verified, and merged.
+- **Router pattern for rules**: a 64-line always-loaded index (`.agent-rules`) holds only the routing table and invariants; detailed rules load on demand from `.agent-rules.d/`. Loading every rule in every session burns the context budget before any work starts.
+- **Rules must physically reach the executor**: rule files are gitignored, so `git worktree add` never copies them — an agent working in a worktree is blind to every project convention while still reporting "done" with a green build. The dispatch flow copies rules into the worktree and names them in the prompt.
+- **Capability-based executor routing**: complexity decides whether a plan + approval gate is needed; capability decides *who* executes. Two hard gates — one that excludes an executor from shared-layer/ambiguous-spec work, one that forces an independent second-agent review for money, permissions, migrations, and production.
+- **Spec is input, not a record**: the spec must exist *before* dispatch because it *is* the prompt. Writing documentation retroactively "for the record" is explicitly banned; a task tier gate keeps sub-2h work out of the ceremony entirely.
+- **One party merges**: sub-agents only write code and a `_DONE.md` handoff file — never commit, push, merge, or open PRs. The orchestrator re-runs the build, reads the diff, and checks scope before merging. Agent reports are data to verify, not conclusions.
+- **Crash recovery**: a Dispatch log (branch + absolute worktree path + next step) is updated at every milestone, because an agent session can die at any moment and the next session has none of the conversation.
+- Ships with `scripts/scrub-check.sh`, a denylist gate for keeping internal identifiers out of a public repo.
 
 ---
 

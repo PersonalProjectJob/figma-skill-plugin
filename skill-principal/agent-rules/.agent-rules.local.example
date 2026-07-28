@@ -1,0 +1,21 @@
+# .agent-rules.local.example — mẫu cấu hình đường dẫn theo máy
+#
+# Copy file này thành `.agent-rules.local` ở repo root rồi sửa cho đúng máy bạn.
+# Các file trong `.agent-rules.d/` tham chiếu các biến này thay vì hardcode đường dẫn,
+# nhờ đó rule dùng chung được cho nhiều máy mà không lộ cấu trúc thư mục cá nhân.
+#
+# Agent: đọc `.agent-rules.local` TRƯỚC khi thực hiện bất kỳ rule nào có chứa ${...}.
+# Không tìm thấy file → DỪNG và hỏi user, không được đoán đường dẫn.
+
+# Thư mục project trong vault Obsidian — chứa Sprints/, Reports/, Templates/
+VAULT_ROOT=<đường dẫn thư mục project trong vault Obsidian>
+
+# Thư mục gốc vault Obsidian (cha của VAULT_ROOT) — chứa doc cross-project
+OBSIDIAN_ROOT=<thư mục gốc vault Obsidian, cha của VAULT_ROOT>
+
+# Checkout chính của repo này (KHÔNG phải worktree). Dùng cho các script nằm
+# ngoài worktree, vd scripts/capture-evidence.mjs.
+REPO_ROOT=<đường dẫn checkout chính của webapp-fe>
+
+# Thư mục skill của agent — chứa create-pr-issues/, dispatch/, ...
+SKILLS_DIR=<đường dẫn thư mục skill của agent, vd ~/.claude/skills>

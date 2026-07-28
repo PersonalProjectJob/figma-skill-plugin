@@ -1,0 +1,64 @@
+# Agent Rules — Index (Acme)
+
+> **This file is a ROUTER, not the rules themselves.** Detailed rules live in `.agent-rules.d/` (repo root).
+> **MANDATORY:** before performing any task listed in the routing table, the Agent MUST read the linked rule file IN FULL (use the Read/file tool) and follow it. Do NOT act from this index alone — it intentionally omits details.
+> If a task matches multiple rows, read all matching files.
+
+## Path variables (đọc trước khi dùng bất kỳ đường dẫn nào bên dưới)
+
+Các file rule dùng biến thay cho đường dẫn tuyệt đối, vì vault Obsidian và thư mục skill nằm ngoài repo và khác nhau trên từng máy. Giá trị thật nằm trong **`.agent-rules.local`** ở repo root — file này KHÔNG được commit (mỗi người tự cấu hình; xem `.agent-rules.local.example`).
+
+| Biến | Nghĩa |
+|---|---|
+| `${VAULT_ROOT}` | Thư mục gốc vault Obsidian Acme (chứa `Sprints/`, `Reports/`, `Templates/`) |
+| `${OBSIDIAN_ROOT}` | Thư mục gốc vault Obsidian (cha của `${VAULT_ROOT}`) — nơi chứa doc cross-project (vd `Plugin & Skill/`) |
+| `${REPO_ROOT}` | Thư mục checkout chính của repo này (bản không phải worktree) |
+| `${SKILLS_DIR}` | Thư mục skill của agent (chứa `create-pr-issues/`, `dispatch/`, ...) |
+
+Thiếu `.agent-rules.local` → DỪNG và hỏi user giá trị, đừng đoán đường dẫn.
+
+## Routing Table
+
+| Khi task là... | ĐỌC file rule trước khi làm |
+|----------------|------------------------------|
+| Export report/walkthrough, lưu evidence test (screenshot/video) sau test run | `.agent-rules.d/reports-export.md` |
+| Tạo/sửa User Story, check task/TODO, sync sprint tracking, tạo sprint mới, sprint transition/closeout, demo & feedback | `.agent-rules.d/obsidian-us-workflow.md` |
+| Đóng sprint khi còn US chưa xong (carry-over, change history) | `.agent-rules.d/carry-over.md` |
+| Tạo/breakdown tasks trong US (sizing, categories, estimate `(Xh)`) | `.agent-rules.d/task-sizing.md` |
+| Quyết định task có cần US không (Task Tier Gate), ghi/sync micro task vào sprint file | `.agent-rules.d/task-sizing.md` |
+| Tạo GitHub issue (bug/feature/change/testing, từ PR hoặc standalone) | `.agent-rules.d/github-issue.md` |
+| Tạo/sửa Pull Request (`gh pr create`/`gh pr edit`) | `.agent-rules.d/github-issue.md` (mục "PR Body Template") |
+| Xác định tên `Màn hình` member-facing, chọn route/screen-slug để chụp evidence | `.agent-rules.d/screen-registry.md` |
+
+## Always-On Invariants (áp dụng mọi task, không cần đọc thêm)
+
+- **Obsidian vault root**: `${VAULT_ROOT}\` — Sprints, User Stories, Reports, Templates đều ở đây (KHÔNG dùng thư mục `user-story/` trong repo).
+- **Active sprint**: file trong `Sprints/` có frontmatter `status: in-progress` — chỉ được có ĐÚNG MỘT sprint in-progress tại mọi thời điểm.
+- **GitHub assignee theo Item Type**: **Backlog & Task** (parent / QA-QC verify) → assign **cả `qa-owner` + `dev-owner`**; **Dev Task** & các type còn lại → chỉ `dev-owner`. `legacy-account` KHÔNG phải collaborator — GitHub âm thầm bỏ qua, phải verify sau khi assign.
+- **Micro task (< 2h, không đổi business logic)**: KHÔNG tạo US — spec nằm trong GitHub issue body, tracking bằng 1 dòng trong sprint file (Task Tier Gate, xem `task-sizing.md`).
+- **Task estimate**: mọi task có notation `(Xh)`, trong khoảng 0.5h–8h.
+- **PR-to-issues**: tạo issues từ PR luôn đi qua skill `/create-pr-issues`.
+- **Issue standalone (từ mô tả/ý tưởng/bug report, không từ PR)**: đi qua skill `/create-issue` — nó lo tier gate, refinement gate, evidence, rồi tái dùng mechanics của `/create-pr-issues`. Nội dung vẫn lấy từ `.agent-rules.d/github-issue.md`.
+- **GitHub issue content source of truth**: `.agent-rules.d/github-issue.md` là nơi duy nhất định nghĩa giọng văn và body template. Skill `/create-pr-issues` chỉ phân tích PR và xử lý GitHub/Project mechanics; không được sinh template khác như `Summary / Changes / Test Scope`.
+- **Windows + gh CLI**: luôn dùng `--body-file`, không bao giờ `--body` inline.
+- **Telegram**: test results/QA/sprint closeout báo về Thread <qa-thread-id>.
+- **Knowledge phải hạ cánh vào file dùng chung, không chỉ vào memory riêng của agent.** Bộ nhớ riêng của từng agent (Claude Code `~/.claude/projects/**/memory/`, Codex `AGENTS.md` cục bộ, Antigravity session state) **các agent khác KHÔNG đọc được**. Vì vậy mỗi khi ghi/cập nhật memory riêng, phải hỏi: *quy tắc này agent khác có cần biết để làm đúng không?* Nếu CÓ → cùng lượt đó cập nhật luôn nơi dùng chung tương ứng, rồi memory chỉ giữ phần ngữ cảnh/vì sao:
+  | Loại knowledge | Nơi dùng chung (bắt buộc cập nhật) |
+  |---|---|
+  | Quy ước US / sprint / evidence / task sizing | `.agent-rules.d/*.md` (+ index `.agent-rules` nếu là invariant) |
+  | Nội dung/giọng văn issue & PR | `.agent-rules.d/github-issue.md` |
+  | Quy trình của một skill | `SKILL.md` của skill đó (+ design doc mirror trong vault) |
+  | Cấu trúc/định dạng file trong vault | template tương ứng trong `${VAULT_ROOT}\Templates\` |
+  | Chuẩn code / kiến trúc repo | `CLAUDE.md` (hoặc `.agent-rules.d/` nếu là quy ước quy trình) |
+  Chỉ được để **riêng trong memory** những thứ thật sự chỉ mình agent đó cần: sở thích cá nhân của user, lịch sử một phiên, state tạm (vd "next free US id"). Sau khi sửa file dùng chung ở repo này, đồng bộ luôn bản backup trong `<skill-repo>/agent-rules-webapp-fe/` (2 file/folder này gitignored ở repo dự án).
+
+## Interactive Alignment Rule (/grill-me)
+
+To maintain alignment and ensure decisions are made in a principled manner:
+
+1. **When to Recommend `/grill-me`**:
+   - When initiating a new implementation plan that involves significant design decisions, UI/UX changes, or architectural complexity.
+   - When requirements are underspecified or contain ambiguous paths.
+   - When there are multiple implementation alternatives with different trade-offs.
+2. **Action**: The Agent **MUST** recommend the user to use the `/grill-me` slash command (e.g., "You can run the `/grill-me` command to...") to resolve these design decisions through an interactive interview before finalizing the plan and beginning execution.
+   - Note: `/grill-me` gates **implementation-plan** decisions. For shaping a vague idea into a GitHub issue, the gate is gstack `/office-hours` (see `.agent-rules.d/github-issue.md`).
