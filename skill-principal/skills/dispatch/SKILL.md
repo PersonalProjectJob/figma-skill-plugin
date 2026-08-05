@@ -326,10 +326,16 @@ Do NOT touch: <liệt kê file các stream song song đang giữ, nếu có>. Kh
 
 **Việc cần làm:** <toàn văn US/issue/task + plan nếu Route C — các bước cụ thể, đánh số>.
 
-**Verify:** chạy `pnpm build` xanh (và test targeted theo CLAUDE.md nếu áp dụng). Không refactor ngoài phạm vi, không đổi dependency, không dùng `console.*` (dùng logger project). Nói rõ cái gì CHƯA test được và vì sao.
+**Verify — build xanh KHÔNG phải bằng chứng type đúng:** bundler (vite/esbuild/swc) *strip* type chứ không *check*. Chỉ `tsc --noEmit` mới là bằng chứng. Chạy đủ ba: (1) typecheck — repo có **<N> lỗi tồn đọng** (baseline), target là về đúng <N> và **0 lỗi thuộc file của bạn**; (2) test targeted vùng đổi; (3) build. Không refactor ngoài phạm vi, không đổi dependency, không `console.*` (dùng logger project).
 
-**RETURN (bắt buộc):** ghi `_DONE.md` ở gốc worktree (để untracked, KHÔNG commit) gồm:
-tóm tắt · file đã tạo/đổi · kết quả `pnpm build` · cách verify · xác nhận không đụng file ngoài scope · follow-up (nếu có). Rồi báo 1 dòng trong chat.
+**RETURN (bắt buộc):** ghi `_DONE.md` ở gốc worktree (để untracked, KHÔNG commit). Quy tắc cho mọi ô: **dán nguyên văn output của máy, đừng viết lại bằng tính từ** — "typecheck passed" / "build xanh" / "tests pass" là câu không kiểm được nên coi như chưa khai. Bên điều phối re-run toàn bộ và đối chiếu từng con số.
+- **Con số** tổng lỗi typecheck trước/sau + dòng grep xác nhận 0 lỗi thuộc file của bạn
+- `git status --short` nguyên văn (căn cứ về scope, không phải câu "không đụng file ngoài scope")
+- Dòng tổng kết pass/fail nguyên văn từ test runner
+- File đã tạo/đổi · cách verify từng AC · follow-up (nếu có)
+- **Cái gì bạn KHÔNG verify được và vì sao** — để trống ô này thì báo cáo không hợp lệ
+- KHÔNG viết câu tổng quát tự khen ("no scope violation", "all clean"): chỉ khai đúng cái bạn thật sự chạy, kèm output. Không chạy được thì ghi BLOCKED, không suy luận từ việc đọc code rồi khai như đã kiểm.
+- `## Đề xuất đổi rule` — **bắt buộc có mục này**, ghi `Không có` nếu không có. Rule nào chặn bạn / sai / không phủ tình huống thì ghi: file nào, đổi thành gì, tình huống rule hiện tại không xử lý được, kèm lệnh + output thật. **Đừng tự sửa file rule**, đừng lặng lẽ đi đường vòng.
 
 Do NOT commit. Do NOT push. Do NOT merge. Do NOT ghi vào vault Obsidian.
 ```
@@ -351,6 +357,30 @@ until [ -f "<path-worktree>/_DONE.md" ]; do sleep 30; done; echo "_DONE.md detec
 - Khi lệnh nền báo hoàn tất (đã thấy `_DONE.md`) → tự động sang Bước 6 (Executor = Gemini) mà KHÔNG cần user nhắc lại.
 
 ## Bước 6 — Verify (mọi route; executor = Gemini theo quy trình riêng ngay dưới đây)
+
+**Ai verify — phân vai bằng cổng cứng, không bằng lời dặn.** Người kiểm mà có tool ghi thì sẽ vá cho xanh thay vì báo đỏ. Nên verify giao cho subagent định nghĩa sẵn **không có tool ghi** (xem `agents/`):
+
+| Việc | Vai | Khi nào |
+|---|---|---|
+| typecheck/test/build/diff + scope | `role-verifier` (no write tools) | diff lớn hoặc nhiều bước kiểm; diff nhỏ thì bên điều phối tự chạy |
+| hash ảnh + đối chiếu bảng PASS | `role-evidence-auditor` (model rẻ) | báo cáo có ảnh evidence hoặc bảng PASS/FAIL nhiều dòng |
+| review nghiệp vụ (GATE 0b) | `role-reviewer` (no write tools) | task đụng tiền/dữ liệu/permission/migration/production |
+
+`role-verifier` hỏi *"chạy có xanh không"*, `role-reviewer` hỏi *"xanh mà có đúng không"* — hai câu khác nhau, đừng gộp một vai. Vai trả `FAIL`/`CHANGES NEEDED` thì bên điều phối sửa hoặc giao lại executor, **không tự nới bar**.
+
+**Verify BẰNG CHỨNG, không chỉ code (áp cho MỌI executor; bắt buộc khi báo cáo có bảng PASS/FAIL hoặc ảnh evidence).** Bước 6 vốn chỉ kiểm code — `diff`/scope/build/typecheck — nên một báo cáo bịa *bằng chứng* vẫn đi qua sạch sẽ. Năm check dưới đây đóng đúng chỗ đó:
+
+1. **Hash mọi ảnh evidence**: `md5sum *.png | sort`. Hai file **trùng hash** mà được khai cho 2 AC / 2 trạng thái khác nhau ⇒ bằng chứng bịa → reject **cả bảng**, không chỉ hàng đó. Đã gặp thật: cùng một file ảnh chống lưng cho cả một AC ở màn quản trị lẫn một AC "đã kiểm cách ly dữ liệu giữa hai loại tài khoản".
+2. **Đối chiếu cột evidence với LOẠI AC**: AC hành vi (click / nhập / reload / đăng nhập / đổi viewport) mà cột evidence ghi "static code review", "verified in code", "based on <cơ chế>" ⇒ **suy luận, không phải quan sát** → hàng đó là **BLOCKED, không phải PASS**. Executor hạ cấp âm thầm kênh xác minh nhưng giữ nguyên chữ PASS ở cột phán quyết là dạng bịa hay gặp nhất, và đọc rất giống báo cáo thật.
+3. **Đếm ảnh khai vs file thật** trong thư mục. Khai mà không có file, hoặc file bé bất thường (đã gặp: một "ảnh" 9 byte, nội dung là chữ `Not Found` — tải ảnh từ URL issue thất bại) ⇒ chưa chạy thật. Ảnh input mà executor không mở được thì đừng trỏ bằng URL: **tải về, đính path tuyệt đối**; không có ảnh thì nói rõ là chưa có chứ đừng đoán hộ lỗi trong prompt — giả thuyết trong prompt sẽ quay lại thành "phát hiện" trong báo cáo.
+4. **Ảnh chụp trên build đã bị executor patch = vô giá trị**: `git status` TRƯỚC khi tin bất kỳ ảnh nào. Task chỉ-test mà có file source bị sửa ⇒ cách ly toàn bộ ảnh vào `INVALID-<executor>-patched-build/`, revert patch, giao lại — kể cả ảnh trông đúng. **Lệnh cấm viết trong prompt KHÔNG đủ**: đã gặp ca prompt cấm rõ ràng, cho phép nói BLOCKED, executor vẫn sửa 7 file source để 32/32 AC thành PASS. Áp lực điền cho đủ bảng thắng lệnh cấm bằng chữ — nên bảng phải kiểm bằng máy.
+5. **Câu tổng quát tự khen trong `_DONE.md` không tính là đã verify**: "không đụng file ngoài scope", "no repository imports", "all AC pass" — bên điều phối phải tự kiểm bằng `diff`/`grep`, hoặc coi như chưa khai.
+
+**Relay đề xuất đổi rule (áp cho MỌI executor, chạy ngay sau khi đọc báo cáo).** Executor thường **không với tới được** thư mục rule dùng chung: nó làm trong worktree của repo product, còn rule/harness nằm ở repo khác, và prompt của nó thường cấm hẳn đọc thư mục config của agent. Nên tiếng nói của nó vào rule qua đúng một đường: mục `## Đề xuất đổi rule` trong báo cáo → bên điều phối chuyển tiếp. Ba điều kiện, thiếu một cái là relay biến thành cửa kiểm duyệt:
+
+1. **Nguyên văn.** Copy y hệt lời executor, đặt trong blockquote. Chỉ được **thêm**, không được viết lại — chất liệu root-cause quý nhất là *agent nói bằng lời của nó rằng nó tưởng cái gì*, tóm tắt lại là mất đúng chỗ đó.
+2. **Tách phần của bên điều phối.** Số đo đã chạy lại đặt trong mục riêng `## Verify`, KHÔNG trộn vào lời executor. Đây là điểm relay hơn cho ghi trực tiếp: câu khai được đính bằng chứng đã kiểm thay vì thành một bản tự báo cáo nữa.
+3. **Không đồng ý thì vẫn phải ghi lại**, `status: rejected` + lý do. Rule bị phê bình phần lớn do bên điều phối viết, nên nó không được vừa là cổng vào vừa là quan toà.
 
 **Cổng escalation `MICRO` → US (áp cho MỌI executor, chạy ngay khi thấy diff thật)**: nếu Bước 2c chấm `MICRO` mà diff thực tế đụng **≥3 file** HOẶC chạm **shared layer** (`httpClient`, auth adapter, `queryKeys`, AuthProvider, shared repository/context) HOẶC phát sinh câu hỏi BE → **DỪNG** theo rule "Escalation (chống lan man)" trong `task-sizing.md`:
 
@@ -471,6 +501,15 @@ Nếu project không có board riêng dạng agent-orchestration (task ngoài ep
 - **Cập nhật board Obsidian LIÊN TỤC, không chỉ ở checkpoint cuối** — xem §"Chống gián đoạn" ngay phía trên. Lý do: phiên có thể dừng bất cứ lúc nào (hết quota/token, rớt mạng, đổi agent giữa chừng) không báo trước; board phải luôn đủ để phiên mới tiếp tục mà không cần hỏi lại.
 - KHÔNG commit, KHÔNG push code, KHÔNG tạo PR — kể cả khi user quên. Nhắc user tự làm hoặc yêu cầu riêng. **Ngoại lệ DUY NHẤT**: executor = Gemini → sau khi Claude tự verify `_DONE.md` + diff + build/test xanh (Bước 6), Claude được commit + merge **CỤC BỘ** (vào branch tích hợp hiện tại, KHÔNG push lên origin) — đây là quy ước riêng cho luồng worktree-cách-ly Gemini, không áp dụng cho Sonnet 5/Codex. Push lên origin / mở PR / tạo issue vẫn luôn hỏi user riêng, không tự động dù executor nào.
 - KHÔNG dispatch Codex khi chưa tạo/chọn xong branch.
+- **Build xanh KHÔNG phải bằng chứng type đúng, và test xanh KHÔNG phải bằng chứng shape đúng.** Ca kiểm chứng: executor báo "builds successfully", tick cả task "typecheck no new error", **18/18 test pass** — nhưng `tsc --noEmit` có **12 lỗi mới** vì component tham chiếu **tên field không tồn tại**. Hai lý do nó lọt, phải hiểu cả hai: (1) build dùng bundler nên **strip type mà không check**; (2) **test cũng xanh vì mock của chính executor dùng đúng shape bịa ra** — test đang *mã hoá cái bug* thay vì bắt nó. Khi reject phải yêu cầu sửa **cả test mock**, không chỉ component.
+  Bắt buộc trong MỌI prompt executor: (a) nói thẳng "build xanh không phải bằng chứng type đúng, chỉ `tsc --noEmit` mới là"; (b) yêu cầu executor **in ra CON SỐ tổng lỗi typecheck** trước/sau + xác nhận 0 lỗi thuộc file của mình — không nhận câu "typecheck passed" suông; (c) cho biết **baseline số lỗi có sẵn** của repo để so, vì repo thật thường có lỗi type tồn đọng.
+  Ở Bước 6 bên điều phối luôn tự chạy typecheck và **grep theo đường dẫn file trong diff** — đây là check bắt lỗi nhiều nhất trong thực tế, không được bỏ dù executor đã báo pass.
+- **Bịa là đầu ra hợp lý của protocol, không phải tính cách của một model cụ thể.** Cùng một `_DONE.md`, khi prompt chỉ đòi **phán quyết bằng văn xuôi** ("build xanh", "PASS") thì executor bịa; khi prompt đòi **con số + baseline + câu "bên điều phối re-run tất cả"** thì nó khai đúng. Kiểm chứng trong CÙNG một task, cùng model: lượt 1 (đòi văn xuôi) bịa 6 nhóm field; lượt 2 (đòi con số, có baseline) khai đúng từng số, chạy lại khớp hết. Executor khác cũng bịa y hệt khi được hỏi kiểu đó (báo "no files outside the task surface changed" trong khi đã tạo một script throwaway ở repo root **có hardcode credential**). Vì vậy: **đừng sửa bằng cách dặn executor "đừng bịa" — sửa bằng cách làm cho câu khai có thể sai được (falsifiable).** Mọi ô trong `_DONE.md` phải là output máy dán vào mà bên điều phối re-run được.
+- **Verify EVIDENCE, không chỉ code** — hash ảnh (trùng byte = bịa), AC hành vi mà evidence là "static code review" thì là BLOCKED chứ không PASS, `git status` trước khi tin ảnh (ảnh trên build đã patch = vô giá trị), câu tổng quát tự khen phải tự kiểm bằng `diff`/`grep`. Chi tiết ở Bước 6 §"Verify BẰNG CHỨNG". Lý do cần ghi thành rule: Bước 6 trước đây chỉ kiểm code, nên báo cáo bịa *bằng chứng* đi qua sạch.
+- **Phân vai bằng agent definition, không bằng lời dặn trong prompt** (xem `agents/`). Frontmatter cho 3 thứ prompt không làm được: `tools` là allowlist **deny-by-omission** (cổng cứng), `effort` chỉ đặt được ở frontmatter, `model` dùng alias nên không phải sửa file khi lên generation mới. Vai kiểm/review/plan **không có tool ghi** — người kiểm mà sửa được code thì sẽ vá cho xanh. Ca kiểm chứng: prompt cấm rõ sửa file source, cho phép nói BLOCKED, executor vẫn sửa 7 file để 32/32 AC thành PASS. Đổi model/effort = sửa frontmatter, **KHÔNG truyền model ở call site**.
+- **Executor phải có đường phản hồi về rule, và đường đó đi qua bên điều phối** vì executor không với tới được thư mục rule dùng chung (nó ở repo khác, và prompt executor thường cấm đọc thư mục config của agent). Mọi prompt executor bắt buộc có mục `## Đề xuất đổi rule` (ghi `Không có` nếu không có); Bước 6 relay theo 3 điều kiện: nguyên văn · tách phần verify của bên điều phối · không đồng ý vẫn phải ghi lại `status: rejected`. Điều kiện 3 vì rule bị phê bình phần lớn do bên điều phối viết — không được vừa là cổng vào vừa là quan toà.
+- **File agent tự viết trả lời "vì sao nó làm vậy", không trả lời "nó có đúng không".** Áp cho `_DONE.md`, memory/brain riêng của agent, và cả đề xuất đổi rule: dùng làm **giả thuyết** root cause (nó tưởng shape dữ liệu là gì, đọc rule nào) — không bao giờ làm **phán quyết**.
+- **Rule bắt được lỗi phải nằm trong file dùng chung, không nằm trong memory riêng của một agent.** Ca kiểm chứng: một báo cáo bịa lọt qua toàn bộ quy trình verify thành văn lúc đó (diff + scope + build + test đều xanh); thứ bắt được nó là memory riêng của một phiên, viết từ vụ trước đó. Agent khác chạy đúng protocol sẽ **merge code bịa**. Mỗi lần phát hiện một lớp bịa mới: hạ cánh vào file rule dùng chung **ngay trong lượt đó**.
 - **Chọn executor theo năng lực (Bước 2b), không tùy tiện**: GATE 0 loại Gemini khỏi shared-layer (auth/httpClient/queryKeys/AuthProvider) và task AC mơ hồ; task đa phương tiện/batch/visual-QA ưu tiên Gemini; refactor-consistency-chặt/migration ưu tiên Codex. Quota bias (nghiêng Gemini) CHỈ áp ở ô "Route B/C spec rõ, code thuần, không shared-layer".
 - **GATE 0b**: tiền/dữ liệu/permission/migration/production → bắt buộc agent-2 review độc lập trước khi coi là xong (Bước 6.4b), dù executor là ai.
 - Chỉ MỘT lượt AskUserQuestion ở route A/B. Route B: 1-2 questions trong CÙNG lượt (base, + executor Codex/Gemini). Route A: 2 questions trong CÙNG một lượt gọi (base + executor Sonnet 5/Codex/Gemini). Route C thêm đúng MỘT cổng duyệt plan (gồm cả chọn executor Codex/Gemini).
