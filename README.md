@@ -1,8 +1,9 @@
-# Figma Agentic Skills for AI Agent (Connected to figma-console-mcp)
+# Agentic Skills for AI Coding Agents — Figma automation + multi-agent orchestration
 
-A collection of advanced UI/UX automation skills for AI coding assistants (like Antigravity or Claude) that interface with Figma through the **figma-console MCP server**. 
+Two families of skills for AI coding assistants (Antigravity, Claude, Codex):
 
-These skills enable the AI agent to act as a senior UI/UX designer and design system engineer to automate Figma asset creation, component-driven assembly, and graphic asset cleaning.
+1. **Figma / frontend automation** (skills 1–8) — interface with Figma through the **figma-console MCP server**, enabling the agent to act as a senior UI/UX designer and design system engineer: design-system extraction, component-driven assembly, asset cleaning, and frontend test/standards enforcement.
+2. **Multi-agent orchestration** (skill 9, `skill-principal`) — not Figma-related and needs no MCP server. A file-based layer for running several coding agents in parallel on one codebase without them colliding, losing work when a session dies, or being believed when they report "done".
 
 ---
 
@@ -67,7 +68,9 @@ Enhanced fork of the [figma-console-mcp](https://github.com/southleft/figma-cons
 - **Enhanced `/health` Endpoint**: Server-side change adds `serverLabel`, `connectedFiles`, and `port` fields to the health JSON response.
 
 ### 9. 🎛️ Skill Principal — Multi-Agent Orchestration Rules (`skill-principal`)
-A file-based orchestration layer for running **three AI coding agents in parallel** (Claude / Codex / Gemini) on one codebase — 1615 lines, zero runtime dependencies. Not Figma-related; this one is about how work is routed, verified, and merged — and about **not trusting the agents' own "done" reports**.
+A file-based orchestration layer for running **several AI coding agents in parallel** (Claude / Codex / Gemini) on one codebase — ~2,100 lines, zero runtime dependencies. Not Figma-related and needs no MCP server; this one is about how work is routed, verified, and merged — and about **not trusting the agents' own "done" reports**.
+
+**Two skills**: `/dispatch` (route → gate → execute → verify → merge) and `/model-audit` (keep the agent capability profile from silently going stale). **Six roles** in `agents/`, four with no write tools at all. **17 principles**, each traceable to a failure that actually happened.
 - **Router pattern for rules**: a 64-line always-loaded index (`.agent-rules`) holds only the routing table and invariants; detailed rules load on demand from `.agent-rules.d/`. Loading every rule in every session burns the context budget before any work starts.
 - **Rules must physically reach the executor**: rule files are gitignored, so `git worktree add` never copies them — an agent working in a worktree is blind to every project convention while still reporting "done" with a green build. The dispatch flow copies rules into the worktree and names them in the prompt.
 - **Capability-based executor routing**: complexity decides whether a plan + approval gate is needed; capability decides *who* executes. Two hard gates — one that excludes an executor from shared-layer/ambiguous-spec work, one that forces an independent second-agent review for money, permissions, migrations, and production.
@@ -76,16 +79,26 @@ A file-based orchestration layer for running **three AI coding agents in paralle
 - **Crash recovery**: a Dispatch log (branch + absolute worktree path + next step) is updated at every milestone, because an agent session can die at any moment and the next session has none of the conversation.
 - **A claim must be falsifiable**: every field in a `_DONE.md` handoff is machine output pasted verbatim, never an adjective. Same task, same model, two rounds — the round that asked "is the build green?" got prose and six invented field names; the round that demanded *the typecheck error count plus the repo's baseline* got numbers that re-ran correctly. Fabrication is what a protocol gets when success criteria cannot be proven false, not a quirk of one model (two vendors' agents did it identically).
 - **Verify the evidence, not just the code**: hash every screenshot (two byte-identical files claimed for two different acceptance criteria is fabricated evidence), and reject a PASS whose evidence column says "static code review" for a behavioural criterion — that is an executor silently downgrading its verification channel while keeping the verdict.
-- **Roles enforced by tool allowlists, not by instructions**: five role definitions in `agents/`, four of which have no write tools at all, so a verifier physically cannot patch code green. A prompt that forbade editing source in writing was overridden anyway — 7 files changed to turn 32/32 criteria into PASS. Missing tools are not overridable.
-- Ships with two runnable gates: `scripts/scrub-check.sh` (denylist for keeping internal identifiers out of a public repo) and `scripts/check-agents.mjs` (fails if a verify/review role ever gains a write tool).
+- **Roles enforced by tool allowlists, not by instructions**: six role definitions in `agents/`, four of which have no write tools at all, so a verifier physically cannot patch code green. A prompt that forbade editing source in writing was overridden anyway — 7 files changed to turn 32/32 criteria into PASS. Missing tools are not overridable.
+- **Work state lives in the repo, not in the conversation**: `.agent-tasks/<id>.md` records branch, worktree, executor, and remaining to-dos at every state change, and a handoff is mandatory whenever a turn ends with work unfinished. The orchestrator is planner, verifier and committer at once — a single point of failure. Run out of quota mid-task and nobody can pick it up: opening the repo shows no trace of what was running.
+- **File-level fencing is not enough — fence shared *runtime* resources too**: two streams touched no common file, `git merge` was perfectly clean, types checked — and both wrote the same cache key with two different shapes, so one feature died silently. Semantic conflicts between two *different* files produce no conflict markers. Splitting work into parallel streams is therefore gated on a shared-resource table agreed up front, with one owning file per resource, and strictly sequential merges.
+- **No default path skips the verifier**: every diff from every executor goes through the verify role. The single exemption (small, self-contained changes) only holds if it survives a four-question re-check run **on the real diff** — small tasks routinely grow, so a decision made when routing must be revisited once the code exists.
+- **Whoever is being criticised does not hold the pen**: a dedicated reporter role writes the final report and relays executor feedback about the rules verbatim into a shared inbox — including feedback the orchestrator disagrees with, which is filed as `rejected` rather than dropped. Most of those rules were written by the orchestrator itself.
+- **The capability profile has an expiry date**: model line-ups get repositioned within weeks, and a stale comparison table reads exactly like a correct one. A machine-readable `last-verified` stamp is checked on every dispatch, and `/model-audit` refreshes it from three sources that cannot substitute for each other — the actual local harness, the vendor docs, and your own dispatch history. Recorded failure modes of the specific executor being dispatched are then translated into hard constraints inside its prompt: a profile you read but never inject is a profile you did not read.
+- Ships with two runnable gates: `scripts/scrub-check.sh` (denylist for keeping internal identifiers out of a public repo) and `scripts/check-agents.mjs` (fails if a verify/review role ever gains a write tool, or if the reporter role gains the ability to edit existing files).
+- **Portable across projects**: a repo-profile step detects whether your project keeps specs in an external docs vault, inside the repo, or nowhere at all — and treats "nowhere" as a valid configuration rather than an error, falling back to issue/PR bodies for tracking.
 
 ---
 
 ## 🛠️ How to Use
 
 ### Prerequisites
+
+**For the Figma skills (1–8):**
 1. Ensure the **figma-console MCP server** is running and configured in your MCP configuration.
 2. The AI assistant must have access to the `figma-console` tools (`figma_create_child`, `figma_get_variables`, `figma_set_fills`, etc.).
+
+**For `skill-principal` (9):** none of the above. It is plain markdown plus two scripts (Bash + Node) and works with any agent that reads skill files. After copying it in, run `/model-audit` once — the capability profile ships with the dates *its author* last verified, not the day you downloaded it.
 
 ### Installation for Gemini/Claude Agents
 Copy the desired plugin folder(s) directly into your agent's config or project plugins directory:
