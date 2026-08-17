@@ -21,6 +21,12 @@ import path from 'node:path';
 const NO_WRITE_ROLES = ['role-verifier', 'role-reviewer', 'role-planner', 'role-evidence-auditor'];
 const WRITE_TOOLS = ['Write', 'Edit', 'NotebookEdit'];
 
+// Vai được tạo FILE MỚI (báo cáo, relay vào inbox) nhưng KHÔNG được sửa file sẵn có.
+// `Write` mà không `Edit` là ranh giới thật: tạo thêm thì vô hại, sửa đè thì có thể
+// lặng lẽ viết lại lời khai của executor — đúng thứ vai này sinh ra để không xảy ra.
+const NEW_FILE_ONLY_ROLES = ['role-reporter'];
+const EDIT_TOOLS = ['Edit', 'NotebookEdit'];
+
 const dir = process.argv[2] ?? 'agents';
 if (!fs.existsSync(dir)) {
   console.error(`ERROR: không tìm thấy '${dir}' (cwd: ${process.cwd()})`);
@@ -62,6 +68,15 @@ for (const name of NO_WRITE_ROLES) {
   const bad = WRITE_TOOLS.filter(t => new RegExp(`\\b${t}\\b`).test(d.tools));
   if (bad.length) fail(`${name}: có tool ghi trong allowlist (${bad.join(', ')}) — vai kiểm/review không được sửa code`);
   else console.log(`  OK  ${name} không có tool ghi`);
+}
+
+for (const name of NEW_FILE_ONLY_ROLES) {
+  const d = defs[name];
+  if (!d) { console.log(`  --  ${name} không có file (bỏ qua)`); continue; }
+  const bad = EDIT_TOOLS.filter(t => new RegExp(`\\b${t}\\b`).test(d.tools));
+  if (bad.length) fail(`${name}: có ${bad.join(', ')} trong allowlist — vai báo cáo chỉ được TẠO file mới, không sửa file sẵn có`);
+  else if (!/\bWrite\b/.test(d.tools)) fail(`${name}: thiếu Write — vai báo cáo cần tạo được file inbox`);
+  else console.log(`  OK  ${name} có Write, không có Edit`);
 }
 
 console.log(`\n${problems === 0 ? 'OK — 0 vấn đề' : `${problems} VẤN ĐỀ`}`);

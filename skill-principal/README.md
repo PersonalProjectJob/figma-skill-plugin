@@ -6,15 +6,18 @@ Gần như toàn bộ package là markdown — agent đọc file, file quyết �
 
 ```
 skill-principal/
-├── skills/dispatch/SKILL.md          # skill điều phối (workflow 8 bước)
+├── skills/dispatch/SKILL.md          # skill điều phối (workflow 8 bước + 4 cổng)
 ├── skills/dispatch/references/
-│   └── agent-capability-matrix.md    # dữ liệu để chọn executor
-├── agents/                           # 5 vai + cổng cứng bằng `tools` allowlist
-│   ├── role-planner.md               # plan, không ghi file
-│   ├── role-executor.md              # vai duy nhất có Edit/Write
+│   └── agent-capability-matrix.md    # dữ liệu để chọn executor — CÓ HẠN, xem last-verified
+├── skills/model-audit/SKILL.md       # làm mới hồ sơ trên: probe harness thật +
+│                                     # tài liệu hãng + lịch sử dispatch. Chạy chủ động.
+├── agents/                           # 6 vai + cổng cứng bằng `tools` allowlist
+│   ├── role-planner.md               # plan + chia stream, không ghi file
+│   ├── role-executor.md              # vai duy nhất có Edit
 │   ├── role-verifier.md              # "chạy có xanh không" — không tool ghi
 │   ├── role-reviewer.md              # "xanh mà có đúng không" — không tool ghi
-│   └── role-evidence-auditor.md      # hash ảnh, đối chiếu bảng PASS (model rẻ)
+│   ├── role-evidence-auditor.md      # hash ảnh, đối chiếu bảng PASS (model rẻ)
+│   └── role-reporter.md              # báo cáo + relay phản hồi rule (Write, KHÔNG Edit)
 ├── agent-rules/
 │   ├── .agent-rules                  # 64 dòng — ROUTER: bảng routing + invariants
 │   ├── .agent-rules.d/               # 6 rule chi tiết, nạp theo yêu cầu
@@ -35,9 +38,11 @@ Ba agent, ba điểm mạnh khác nhau, ba pool quota khác nhau. Giao việc b�
 - Agent báo "đã xong, build pass" nhưng thực ra không hề gọi API/không chạy trong scope.
 - Task 30 phút bị áp cùng nghi thức tài liệu như feature 3 ngày.
 
-## Cách giải: 12 nguyên tắc
+## Cách giải: 17 nguyên tắc
 
-Tám nguyên tắc đầu là về **giao việc** (ai làm, làm ở đâu, spec ở đâu). Bốn nguyên tắc cuối (9–12) là về **không tin kết quả trả về** — chúng sinh ra sau khi bốn báo cáo "đã xong" liên tiếp hoá ra là bịa, và sau khi hiểu ra rằng bịa không phải tính cách của một model mà là đầu ra hợp lý khi câu khai không thể sai được.
+Tám nguyên tắc đầu là về **giao việc** (ai làm, làm ở đâu, spec ở đâu). Nguyên tắc 9–12 là về **không tin kết quả trả về** — chúng sinh ra sau khi bốn báo cáo "đã xong" liên tiếp hoá ra là bịa, và sau khi hiểu ra rằng bịa không phải tính cách của một model mà là đầu ra hợp lý khi câu khai không thể sai được.
+
+Nguyên tắc 13–17 là lớp mới nhất, về **chạy nhiều agent thật sự song song và giữ cho quy trình không tự mục theo thời gian**: state phải sống ngoài hội thoại, fence phải với tới cả tài nguyên runtime chứ không chỉ file, cổng kiểm không được có đường mặc định bỏ qua, người viết báo cáo không được là người bị phê bình, và bảng đánh giá agent phải có hạn sử dụng.
 
 | # | Nguyên tắc | Vì sao | Ở file |
 |---|---|---|---|
@@ -53,8 +58,13 @@ Tám nguyên tắc đầu là về **giao việc** (ai làm, làm ở đâu, spe
 | 10 | **Verify EVIDENCE, không chỉ code** — hash ảnh, đối chiếu loại evidence với loại AC, `git status` trước khi tin ảnh | Quy trình verify chỉ kiểm code thì báo cáo bịa *bằng chứng* đi qua sạch: ảnh trùng byte khai cho 2 AC, "static code review" điền vào cột PASS của AC hành vi | `SKILL.md` Bước 6 |
 | 11 | **Phân vai bằng cổng cứng, không bằng lời dặn** — vai kiểm/review không có tool ghi | Prompt cấm sửa source bằng chữ vẫn bị vượt: executor sửa 7 file để 32/32 AC thành PASS. Thiếu tool thì không vượt được | `agents/`, `scripts/check-agents.mjs` |
 | 12 | **Executor phải có đường phản hồi về rule** — mục `## Đề xuất đổi rule` bắt buộc, bên điều phối relay nguyên văn | Executor không với tới thư mục rule dùng chung; không có đường nói lại thì nó lặng lẽ đi đường vòng, và rule sai cứ sai | `SKILL.md` Bước 5 + Bước 6 |
+| 13 | **State công việc nằm trong repo, không nằm trong hội thoại** — `.agent-tasks/<id>.md`; hết lượt mà chưa xong thì **bắt buộc handoff** | Bên điều phối vừa planner vừa verifier vừa committer ⇒ SPOF thật. Hết quota giữa dòng là không ai nhặt lên tiếp được: mở repo ra không thấy dấu vết nào của việc đang chạy | `SKILL.md` Bước 0.6 |
+| 14 | **Fence theo FILE là KHÔNG đủ — phải fence cả tài nguyên chia sẻ ở RUNTIME** | Hai stream không đụng chung file nào, `git merge` **sạch tuyệt đối**, không lỗi type — nhưng cùng ghi một key cache với hai shape khác nhau ⇒ tính năng chết im lặng. Xung đột ngữ nghĩa giữa 2 file *khác nhau* không sinh conflict marker nào | `SKILL.md` Bước 2e |
+| 15 | **Sàn kiểm tối thiểu — mọi diff qua vai kiểm; miễn trừ phải sống sót phản tỉnh trên DIFF THẬT** | "Diff nhỏ thì tự chạy" tạo ra một đường mặc định **không có vai kiểm nào**. Task nhỏ phồng thành task lớn là chuyện thường, nên miễn trừ cấp lúc chấm route phải được xét lại lúc có diff | `SKILL.md` Bước 6.0 |
+| 16 | **Người viết báo cáo không phải người bị phê bình** — `role-reporter` relay nguyên văn phản hồi về rule | Rule bị phê bình phần lớn do bên điều phối viết ra; để nó vừa nhận vừa diễn đạt lại là để bên bị phê bình cầm bút. Trước đây chỉ vá bằng thủ tục, nay vá bằng phân công | `agents/role-reporter.md` |
+| 17 | **Hồ sơ năng lực có HẠN, và lỗi đã ghi nhận phải quay lại prompt** | Model mới đảo định vị cả một dòng model chỉ sau vài tuần, mà **bảng cũ đọc y hệt bảng đúng**. Và hồ sơ chỉ có ích nếu failure mode của *đúng executor sắp giao* được dịch thành ràng buộc trong prompt — đọc mà không nhúng = bằng không đọc | `SKILL.md` Bước 2a + 2b · `skills/model-audit/` |
 
-Hai thứ chống gián đoạn đi kèm: **Dispatch log** (branch + worktree path tuyệt đối + bước tiếp theo, cập nhật ở mọi mốc) và **giao thức `_DONE.md`** (agent phụ ghi file, bên điều phối poll nền 30s thay vì chờ người quay lại báo).
+Ba thứ chống gián đoạn đi kèm: **task file** (state máy đọc, sống trong repo), **Dispatch log** (branch + worktree path tuyệt đối + bước tiếp theo), và **giao thức `_PROGRESS.md` / `_DONE.md`** — agent phụ ghi log tiến trình append-only để bên điều phối tail được, thay vì chỉ poll một tín hiệu nhị phân "xong chưa" (khi đó "đang chạy" và "đã treo 20 phút" nhìn giống hệt nhau).
 
 ## Dùng thế nào
 

@@ -27,6 +27,92 @@ Thiết kế gốc: `${OBSIDIAN_ROOT}\Plugin & Skill\Dispatch-Workflow-Design.md
    | `${SKILLS_DIR}` | Thư mục skill của agent | `~/.claude/skills` |
    | `${CODEX_HOME}` | Thư mục cấu hình Codex CLI | `~/.codex` |
    | `${WORKTREE_PARENT}` | Nơi đặt worktree cách ly | thư mục cha của `${REPO_ROOT}` |
+   | `${CANONICAL}` | Repo chứa package này (rule + agents + scripts) | thư mục cha của `skills/` |
+
+## Bước 0.5 — REPO PROFILE (skill này không chỉ chạy trên repo có vault)
+
+Toàn bộ Bước 2c (spec gate) được viết cho một repo có `.agent-rules` + thư mục tài liệu ngoài repo. **Repo khác có thể không có gì trong hai thứ đó — và đó là trạng thái HỢP LỆ, không phải lỗi cấu hình.** Chạy đúng 2 lệnh rồi tra bảng, đừng suy đoán:
+
+```bash
+ls "${REPO_ROOT}"/.agent-rules "${REPO_ROOT}"/.agent-rules.local "${REPO_ROOT}"/CLAUDE.md 2>/dev/null
+ls "${REPO_ROOT}"/docs "${REPO_ROOT}"/Docs 2>/dev/null
+```
+
+| Profile | Dấu hiệu | Spec gate (Bước 2c) chạy thế nào |
+|---|---|---|
+| **VAULT** | có `.agent-rules` + `.agent-rules.local` khai `${VAULT_ROOT}` | Nguyên văn Bước 2c — spec sống trong thư mục tài liệu ngoài repo |
+| **IN-REPO DOCS** | không có `.agent-rules`, nhưng `docs/` có bộ doc theo vai | Thay vault bằng chính `docs/` đó. Không có sprint file ⇒ bỏ bước "kiểm tra sprint active", KHÔNG coi là fail |
+| **BARE** | không có cả hai | Bỏ hẳn spec gate. Tracking DUY NHẤT là issue body + PR description. **Báo user rõ điều này ở bước báo cáo** thay vì im lặng |
+
+Chỉ **DỪNG hỏi user** khi profile là VAULT *nhưng* `.agent-rules.local` thiếu/không đọc được — lúc đó path thật sự không đoán được.
+
+⚠️ **Thiếu file khai báo KHÔNG chứng minh là không có thư mục tài liệu.** Trước khi chốt IN-REPO DOCS hoặc BARE, tìm một lượt; chốt sai thì gate bỏ qua một spec đang `in-progress` và tạo doc trùng:
+
+```bash
+ls -d <nơi-hay-đặt-vault>/*/ 2>/dev/null
+ls -d <ứng-viên>/<TênProject>/Sprints 2>/dev/null    # có Sprints/ ⇒ là VAULT
+```
+
+Ca kiểm chứng: một repo thiếu cả 3 file khai báo bị chấm **IN-REPO DOCS** — sai. Thư mục tài liệu thật tồn tại ở nơi khác, có sẵn một spec đang `in-progress` trỏ đúng bộ doc đang xử lý. Hai lệnh `ls` ở trên rẻ hơn nhiều so với hậu quả.
+
+Ghi profile đã chốt vào báo cáo cuối để phiên sau khỏi dò lại.
+
+## Bước 0.6 — Task file (chống mất việc khi phiên chết giữa dòng)
+
+**Vấn đề:** skill này đặt bên điều phối làm planner + verifier + committer, và state thật của công việc — đang ở bước nào, worktree nào, branch nào, executor nào đang giữ — **chỉ nằm trong ngữ cảnh hội thoại của nó**. Hết quota hoặc phiên đứt là không ai nhặt lên tiếp được: executor/user mở repo ra không thấy dấu vết nào của việc đang chạy. Đây là **SPOF thật**, không phải rủi ro lý thuyết.
+
+**Cách chặn:** mọi mốc chuyển trạng thái ghi ra `${REPO_ROOT}/.agent-tasks/<id>.md` — markdown + frontmatter, agent nào cũng đọc/sửa được, và **nằm ở main checkout nên sống sót qua `git worktree remove`**.
+
+### 0.6a — Đầu mỗi lượt: kiểm việc đang dở TRƯỚC khi tạo mới
+
+Liệt kê task hiện có. Thấy task `in-progress` / `verify` / `blocked` khớp việc user vừa yêu cầu ⇒ **tiếp tục task đó, đừng tạo mới**: đọc `## Plan` / `## To-Do` / `## Handoff`, claim, rồi chạy tiếp từ To-Do chưa tick. Tạo task trùng là mất đúng cái lợi mà lớp này sinh ra.
+
+Task `todo` có `## Handoff` ⇒ việc agent trước bỏ lại giữa dòng — đọc note handoff trước khi làm bất cứ gì.
+
+### 0.6b — Ghi những gì agent sau CẦN để tiếp nhận
+
+Khung tối thiểu trong `## Plan`; thiếu nó thì agent sau đọc task file vẫn không biết đường đi:
+
+```markdown
+- repo profile: VAULT | IN-REPO DOCS | BARE      (Bước 0.5)
+- route: A | B | C · executor: <...> · model/effort: <...>
+- branch: <tên nhánh> (base <base>)
+- worktree: <path tuyệt đối | — nếu làm thẳng>
+- prompt: <path file prompt>
+- spec / tracking: <path spec | dòng ad-hoc | issue #>
+- stream: <N>/<tổng> · siblings: <id khác>        (nếu đã tách ở Bước 2e)
+```
+
+`## To-Do` chép từ AC/plan — đây là thứ agent sau chạy tiếp, nên phải là **việc cụ thể**, không phải tiêu đề.
+
+### 0.6c — Mốc chuyển trạng thái
+
+| Khi | State | Vì sao |
+|---|---|---|
+| Chốt gate xong | `planning` | đã biết tier + scope, chưa giao ai |
+| Giao executor | `in-progress` + `owner` | ghi rõ agent đang giữ — tránh 2 agent cùng sửa |
+| Executor báo xong | `verify` | **executor báo xong KHÔNG phải là xong** |
+| Sau khi verify | ghi verdict thật | không phải lời khai của executor |
+| Verify fail / chờ user | `blocked` + lý do trong `## Handoff` | |
+| Kết thúc lượt mà việc còn dở | `handoff` | **bắt buộc** — xem 0.6d |
+| Xong hẳn | `done` | nên bị **chặn** nếu verdict != pass |
+
+### 0.6d — Kết thúc lượt mà chưa xong ⇒ BẮT BUỘC handoff
+
+Mốc quan trọng nhất và cũng dễ quên nhất. Trước khi trả lời user ở **bất kỳ** lượt nào mà việc chưa `done` — chờ executor, chờ user duyệt, hay chỉ đơn giản là hết lượt — phải nhả `owner` và đưa state về `todo` kèm note "đang chờ gì / agent sau làm gì tiếp".
+
+Không làm thì task treo ở `in-progress` với owner cũ và agent khác **bị chặn claim** — tức tự tay tái tạo đúng cái SPOF này sinh ra để gỡ.
+
+### 0.6e — Ranh giới với log lịch sử trong spec
+
+Hai thứ **không thay thế nhau**, đừng bỏ cái nào:
+
+- **Task file** = state vận hành, máy đọc, sống trong repo, dành cho **agent tiếp nhận giữa dòng**. Ngắn, luôn phản ánh *hiện tại*.
+- **Dispatch log trong spec** = lịch sử quyết định, người đọc, dành cho **QA/PO mở lại sau vài tuần**. Dài, chỉ thêm không sửa.
+
+Profile `BARE` hoặc task micro (không có spec doc) ⇒ task file là nơi tracking **duy nhất**, càng phải ghi đủ.
+
+`.agent-tasks/` nên nằm trong `.gitignore` của repo sản phẩm: state cục bộ của máy, lọt vào PR chỉ gây nhiễu diff.
 
 ## Bước 1 — Phân giải input
 
@@ -61,9 +147,53 @@ Chấm tín hiệu từ nội dung spec + hiểu biết codebase (Grep/Glob nhan
 
 **Nguyên tắc biên: lưỡng lự giữa 2 nhánh → chọn nhánh LỚN hơn** (nhánh lớn có cổng duyệt của user).
 
+## Bước 2a — Hạn đánh giá model (3 ngày, áp cho MỌI agent)
+
+Bước 2b và Bước 4 đều trích số từ `references/agent-capability-matrix.md` để nói với user "nên chọn cái nào". **Số đó có hạn.** Model mới ra liên tục và có thể đảo cả định vị của một dòng model chỉ sau vài tuần — mà **một bảng đánh giá cũ đọc y hệt bảng đúng**, không có dấu hiệu nào cảnh báo.
+
+Chạy đầu mỗi lượt, trước Bước 2b:
+
+```bash
+grep -o 'last-verified:[^>]*' references/agent-capability-matrix.md
+date "+%Y-%m-%d"
+```
+
+| Tuổi đánh giá của hãng sắp dùng | Làm gì |
+|---|---|
+| ≤3 ngày | Dùng thẳng. Không tốn lượt fetch nào. |
+| >3 ngày | **Báo user đã quá hạn + đề nghị chạy `/model-audit`**, rồi hỏi: audit trước, hay đi tiếp bằng số cũ. Đi tiếp thì `description` option ở Bước 3.4 phải mở đầu bằng `[đánh giá tới <ngày>, chưa kiểm lại]`. |
+| Không kiểm được | Nói thẳng *"đánh giá tính đến `<ngày>`, chưa kiểm lại được vì `<lý do>`"*, chạy tiếp bằng số cũ. |
+
+**Gate này CHỈ ĐỌC — nó KHÔNG tự làm mới hồ sơ.** Làm mới là việc của skill **`/model-audit`** (probe harness thật trên máy, đọc tài liệu hãng, khai thác lịch sử dispatch đã chạy). Tách như vậy là cố ý: cổng đọc phải **rẻ** (1 lệnh `grep`) vì chạy mọi lượt; việc làm mới tốn nhiều lượt fetch nên phải do **user chủ động khởi động**, không chen ngang giữa lúc đang dispatch.
+
+Chỉ kiểm **hãng sắp dùng** — task đã chốt agent nào thì không đi kiểm agent khác cho đủ lệ bộ.
+
+**Cache model của CLI KHÔNG thoả mãn gate này.** Cache cho biết model nào *tồn tại* và effort mặc định là gì; gate này hỏi model đó *giỏi việc gì, giá bao nhiêu, yếu chỗ nào* — thứ chỉ có ở tài liệu hãng. Slug lạ xuất hiện trong cache là **tín hiệu phải đi kiểm**, không phải bằng chứng đã kiểm.
+
 ## Bước 2b — Executor đề xuất (căn cứ năng lực agent)
 
-Route A/B/C ở trên chỉ đo **độ phức tạp**. Bước này chọn **executor phù hợp năng lực** — căn cứ tài liệu `references/agent-capability-matrix.md` (đọc file đó nếu cần chi tiết/nguồn). Kết quả ở đây là option **"(Recommended)"** đưa vào AskUserQuestion ở Bước 3.4; user vẫn quyết cuối.
+Route A/B/C ở trên chỉ đo **độ phức tạp**. Bước này chọn **executor phù hợp năng lực**. Kết quả là option **"(Recommended)"** đưa vào AskUserQuestion ở Bước 3.4; user vẫn quyết cuối.
+
+**BẮT BUỘC đọc `references/agent-capability-matrix.md` ở bước này — không phải "đọc nếu cần".** Chia task mà không mở hồ sơ ra thì skill phân công bằng trí nhớ của phiên, tức bằng thứ đã cũ đúng lúc nó cũ nhất. Đọc **ba mục**, mỗi mục trả lời một câu khác nhau:
+
+| Mục | Trả lời | Dùng ở đâu |
+|---|---|---|
+| Bảng điểm + Coding capability | *ai hợp việc này* | chọn executor (chấm bên dưới) |
+| Tầng model của từng hãng | *model + effort nào, giá bao nhiêu* | dựng option ở Bước 4 |
+| **Bằng chứng thực địa** | *executor này đã sai kiểu gì trên repo NÀY* | **nhúng vào prompt ở Bước 5** |
+
+Mục thứ ba là mục dễ đọc lướt nhất và có giá trị cao nhất: nó không nói agent nào giỏi hơn, nó nói **lỗi đã xảy ra rồi**. Đọc mà không dùng thì bằng không đọc — nên nó có **đầu ra bắt buộc**:
+
+**⇒ Trích failure mode đã ghi nhận của ĐÚNG executor sắp giao, dịch thành ràng buộc kiểm được trong prompt Bước 5.** Không dán cả mục vào prompt (executor không cần đọc lịch sử của agent khác), mà chuyển từng ca thành một câu cấm/đòi hỏi kiểm được:
+
+| Ca trong hồ sơ | Câu đưa vào prompt |
+|---|---|
+| Sửa file ngoài scope để bảng AC thành PASS | "Không sửa file ngoài SCOPE kể cả khi đó là cách duy nhất làm AC pass — gặp thì báo BLOCKED" |
+| Build+test xanh nhưng typecheck lỗi, mock dùng shape bịa | "Dán số lỗi typecheck trước/sau; test pass nhờ mock tự viết không tính là verify" |
+| Ảnh evidence trùng byte / chụp trên build đã patch | "Mỗi AC một ảnh riêng, chụp trước khi sửa gì thêm; sẽ bị hash đối chiếu" |
+| Báo cáo khai số byte lệch file thật | "Mọi con số về file phải đọc từ đĩa trong chính lượt này" |
+
+Executor chưa có ca nào ⇒ ghi `chưa có tiền lệ ghi nhận` vào báo cáo cuối, **không** bịa ràng buộc cho đủ.
 
 Chấm theo thứ tự, DỪNG ở dòng đầu khớp:
 
@@ -142,6 +272,72 @@ e. **Đăng ký vào sprint file active** — tạo folder KHÔNG phải là tra
 
 **US folder thuộc tuần TẠO RA nó, không phải tuần active.** Khi carry-over, sprint mới chỉ wikilink tới folder cũ — **KHÔNG di chuyển, KHÔNG copy folder** (xem `.agent-rules.d/carry-over.md`).
 
+## Bước 2e — Decompose (tách task thành nhiều stream song song)
+
+Phần còn lại của skill này có đầy đủ **hàng rào** song song (fence file, mỗi stream 1 worktree, 1 kênh theo dõi) nhưng nếu không có bước này thì không có **bên chia việc** — song song chỉ xảy ra khi user tự gọi `/dispatch` hai lần. Bước 2e là bên chia việc đó. Áp cho **mọi executor**, kể cả stream hỗn hợp (stream 1 agent này, stream 2 agent khác).
+
+### 2e.1 — Trigger
+
+Chỉ tách khi khớp **TẤT CẢ**: Route B/C · ước lượng ≥4 file · tách được thành ≥2 **cụm file rời nhau** mà mỗi cụm tự verify được (typecheck + test chạy riêng vẫn ra kết quả có nghĩa).
+
+**Route A KHÔNG BAO GIỜ tách** — overhead lớn hơn chính task.
+
+NO-GO (dù đủ 3 điều kiện) → chạy đơn stream:
+
+- **>1 stream** cùng cần đụng shared layer. Đúng 1 stream đụng thì được, nhưng stream đó phải **xong + merge trước**, các stream còn lại rebase lên sau.
+- AC mơ hồ / contract chưa rõ — chưa chốt được ranh giới thì tách là tách bừa.
+- Migration schema/data — tuần tự, không song song.
+
+**Trần 3 stream đồng thời.** Bên điều phối là bên verify + merge duy nhất, nên stream thứ 4 chỉ làm hàng đợi dài ra chứ không nhanh hơn.
+
+### 2e.2 — Ai chia: `role-planner`, không phải main-loop
+
+Chia cụm file cần đọc code thật (ai import ai, ai sở hữu state dùng chung nào) — đúng vai `role-planner` (không có tool ghi). Main-loop chỉ tự chia khi vùng file đã hiển nhiên rời nhau.
+
+Yêu cầu trả về đúng 2 khối:
+
+```markdown
+## Streams
+| # | Cụm file | Do NOT touch | Executor đề xuất | Phụ thuộc stream nào |
+
+## Tài nguyên chia sẻ ở runtime
+| Tài nguyên | File SỞ HỮU (khai báo 1 nơi) | Shape/giá trị đã chốt | Stream nào đọc |
+```
+
+### 2e.3 — Bảng tài nguyên runtime là ĐIỀU KIỆN CHẶN
+
+**Fence theo FILE là không đủ.** Ca kiểm chứng: hai stream không đụng chung file nào, `git merge` **sạch tuyệt đối**, không lỗi type — nhưng cùng ghi vào **một key cache dùng chung** với hai shape khác nhau (mỗi bên đặt tên field phân trang một kiểu). Hậu quả: hook A đọc field của hook B ra `undefined` → "tải thêm" ngừng im lặng. Không crash, không conflict marker nào cảnh báo, vì xung đột là **ngữ nghĩa giữa 2 file KHÁC nhau**.
+
+Phải liệt kê + chốt TRƯỚC khi giao việc, tối thiểu: **key cache + shape tại key đó · tên/format event realtime · storage key · route path · biến CSS/token · enum dùng chung · key i18n mới**.
+
+Mỗi tài nguyên phải (a) chốt trước, (b) khai báo ở **đúng một file sở hữu** mà mọi stream import. Câu bắt buộc nhúng vào prompt của **từng** stream:
+
+> Shape tại key `<X>` do file `<Y>` sở hữu — import từ đó, KHÔNG tự khai báo lại. Enum / token / key i18n dùng chung cũng vậy. Cần thêm field vào shape đó thì DỪNG và báo, đừng tự thêm. `git merge` sạch không phải bằng chứng stream của bạn tương thích với stream kia.
+
+Không chốt được bảng này ⇒ **không tách**, chạy đơn stream. Đây là điều kiện chặn, không phải khuyến nghị.
+
+### 2e.4 — Mỗi stream một bộ đồ nghề riêng
+
+| Thứ | Quy tắc |
+|---|---|
+| Branch | `{type}/{issue}_{slug}--s{N}` — hậu tố stream để `git branch` đọc ra ngay |
+| Worktree | 1 path riêng mỗi stream, **kể cả executor chạy bằng CLI** (song song thì không dùng chung checkout chính) |
+| Prompt | 1 file riêng; phần `Do NOT touch` liệt kê cụm file của MỌI stream còn lại |
+| Kênh theo dõi | 1 file log + 1 kênh notification riêng mỗi stream, không ghi chung |
+| Task file | 1 task file mỗi stream, có `stream: <N>/<tổng>` + `siblings:` |
+
+### 2e.5 — Merge TUẦN TỰ, kiểm chéo trước mỗi lần
+
+Stream chạy song song, **merge thì không**. Trước khi merge stream thứ 2 trở đi:
+
+1. `git diff <base>...<branch-stream-N>` đối chiếu bảng 2e.3 — stream này có ghi vào tài nguyên chia sẻ nào không, shape có khớp bản đã chốt không.
+2. Grep chéo tên key/enum/storage trên hợp của các cụm đã merge + cụm đang merge. Hai nơi khai báo cùng một thứ ⇒ **CHẶN**.
+3. Sau merge, chạy lại typecheck **trên nhánh tích hợp**, không phải trên worktree stream — lỗi ghép chỉ lộ ra ở đây.
+
+### 2e.6 — Một stream fail
+
+Giữ nguyên worktree đó, **merge các stream đã xanh trước** (không giữ con tin), rồi follow-up riêng stream fail. Nếu stream fail chính là stream **sở hữu tài nguyên chia sẻ** ⇒ CHẶN toàn bộ — các stream kia đang import một shape chưa được chốt thật.
+
 ## Bước 3 — Tạo branch (mọi route, TRƯỚC khi sửa file)
 
 1. `git status` — working tree bẩn → DỪNG, hỏi user xử lý (stash/commit/tiếp tục trên nhánh hiện tại) trước.
@@ -185,11 +381,23 @@ e. **Đăng ký vào sprint file active** — tạo folder KHÔNG phải là tra
      ```
      **Chưa verify thì KHÔNG tick `[x]`** (checkbox = Dev done → script weekly report cộng giờ ngay). `/create-pr-issues` sẽ rewrite dòng này về format chuẩn của `task-sizing.md` (`- [x] … — PR #… · QA #… Testing · Dev #…`) khi PR/issue đã có.
 
-## Bước 4 — Chọn model Codex (chỉ khi executor = Codex, mọi route)
+## Bước 4 — Catalog model để HỎI user (mọi executor, mọi route)
 
-Bỏ qua bước này nếu: executor = Sonnet 5 (Route A subagent, không gọi Codex), HOẶC executor = Gemini bất kỳ route nào (user tự chọn model trong harness Gemini riêng của họ — `/dispatch` không quản lý model Gemini).
+Bước này soạn **option** cho câu hỏi `executor · model · effort` ở Bước 3.4 — nó **không tự chốt model**. Bỏ qua chỉ khi executor là subagent lấy model/effort từ frontmatter (không có gì để chọn).
 
-Đọc LIVE, không hardcode:
+**Model KHÔNG bao giờ do agent tự chốt im lặng.** Áp cho **mọi executor**, kể cả agent mà skill này không set được model (user tự chọn trong harness riêng của họ): không set được thì vẫn phải **hỏi và ghi lại** lựa chọn để nhắc đúng lúc giao việc. Im lặng = bắt user tự đoán; chốt hộ mà không nói lý do = bắt user tin suông. Cả hai đều sai kiểu giống nhau.
+
+Ba ràng buộc về cách hỏi:
+
+1. **Gộp `executor · model · effort` thành MỘT câu hỏi**, mỗi option là một **cặp hoàn chỉnh**. Không tách model thành câu riêng: model phụ thuộc executor, mà một lượt hỏi không rẽ nhánh được — tách ra là đẻ thêm lượt hỏi, phá luật "chỉ MỘT lượt".
+2. **`description` mỗi option phải là phân tích có SỐ + nguồn**, không phải tính từ. `"benchmark agentic 49.0→65.3% so với thế hệ trước; mất tầng thinking rẻ nhất"` được; `"mạnh hơn, phù hợp task này"` **không** được. Số lấy từ hồ sơ **sau khi đã qua Bước 2a** — chưa qua gate thì không được trích số.
+3. **Số quá hạn mà không kiểm lại được** ⇒ vẫn hỏi, nhưng `description` mở đầu bằng `[đánh giá tới <ngày>, chưa kiểm lại]`. Cấm bỏ trống, cấm phịa.
+
+**Luôn kèm ≥1 option thay thế** (rẻ hơn / kỹ hơn) để user thấy trade-off, thay vì chỉ thấy một lựa chọn đã chốt sẵn. Áp cho **mọi route**, không riêng route lớn.
+
+Trần câu hỏi mỗi lượt là 4 (giới hạn của công cụ hỏi): base branch · executor·model·effort · visual/spec option · dự phòng. Hết trần mà còn thứ cần hỏi ⇒ chốt bằng mặc định hợp lý và **nói rõ đã chốt gì**, đừng đẻ lượt hỏi mới.
+
+Với executor chạy qua CLI có cache model — đọc LIVE, không hardcode:
 
 ```bash
 python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.codex/models_cache.json'),encoding='utf-8'));[print(m['slug'],m.get('default_reasoning_level')) for m in d['models'] if m.get('visibility')!='hide']"
@@ -206,7 +414,8 @@ grep -E "^model|^model_reasoning_effort" ~/.codex/config.toml
 | Route C (bug khó, trade-off, visual phức tạp) | <codex-hard> | `xhigh` (Extra High) |
 | Migration/payment/permission/production | <codex-hard> | `max` + BẮT BUỘC agent-2 review (GATE 0b) |
 
-- Route C: nêu 1 phương án model thay thế (frontier khác trong cache) ở cổng duyệt.
+Dòng khớp task = option **"(Recommended)"**; dòng trên/dưới nó thành option thay thế, `description` ghi rõ đánh đổi bằng số hoặc vai trò.
+
 - Model trong config không còn trong cache → dùng slug đầu tiên visibility=list, báo user.
 - Max/Ultra KHÔNG hợp requirement mơ hồ → nếu AC mơ hồ, GATE 0 đã ép Route C plan (Claude khóa sản phẩm trước), không nhảy thẳng Max.
 
@@ -251,6 +460,13 @@ If you will create/edit a GitHub issue or PR body, `.agent-rules.d/github-issue.
 - No unrelated refactors, no dependency changes, no console.* (use the project logger).
 - Do NOT commit. Leave changes in the working tree.
 </action_safety>
+
+<known_failure_modes>
+[BẮT BUỘC — điền từ mục "Bằng chứng thực địa" của `references/agent-capability-matrix.md`, chỉ lấy ca của CHÍNH executor này. Không có ca nào thì ghi "Không có tiền lệ ghi nhận" và giữ khối lại.]
+These are mistakes THIS agent has actually made on this codebase before. They are not hypothetical:
+- [1 dòng/ca: lỗi đã xảy ra → ràng buộc kiểm được cho lần này]
+Treat each line as a hard constraint, not advice. If following one of them blocks you from finishing, report BLOCKED — do not work around it.
+</known_failure_modes>
 
 <verification_loop>
 Run `pnpm build` before reporting done. If it fails, fix and re-run. Report which files you changed and the build result.
@@ -322,6 +538,13 @@ Stack: <stack>. Deps đã cài; `.env.local` có sẵn.
 **SCOPE — chỉ những file/khu vực này là của bạn:** <liệt kê file/thư mục ước lượng ở Bước 2>.
 Do NOT touch: <liệt kê file các stream song song đang giữ, nếu có>. Không tạo/sửa file ngoài scope.
 
+**Log tiến trình (BẮT BUỘC, ngay từ dòng đầu tiên bạn làm):** append một dòng vào `_PROGRESS.md` ở gốc worktree **ngay khi bắt đầu** và **sau mỗi bước có ý nghĩa** — đọc xong rule, sửa xong 1 file, chạy xong 1 lệnh verify, gặp lỗi/BLOCKED. Đừng dồn tới cuối mới ghi. Format: `HH:MM [THINKING|WORKING] <mô tả ngắn>` — `THINKING` khi đang đọc/phân tích/quyết định hướng, `WORKING` khi đang sửa file/chạy lệnh. Append-only, không ghi đè dòng cũ. File này không commit, không phải artifact cuối — người điều phối đang tail nó để biết bạn còn sống, im lặng quá lâu sẽ bị coi là treo.
+
+**Lỗi CHÍNH BẠN đã mắc trên codebase này trước đây** (bên điều phối điền từ mục "Bằng chứng thực địa" của hồ sơ, chỉ lấy ca của executor này; không có ca nào thì ghi "Không có tiền lệ ghi nhận"):
+- <1 dòng mỗi ca: lỗi đã xảy ra → ràng buộc kiểm được cho lần này>
+
+Coi mỗi dòng là ràng buộc cứng, không phải lời khuyên. Tuân theo mà không hoàn thành được task ⇒ báo BLOCKED, KHÔNG đi đường vòng.
+
 **Ngữ cảnh sẵn có (tái dùng, đừng làm lại):** <hook/repo/util đã có + chữ ký — tuân data boundary components -> hooks -> repositories -> adapter, normalization DTO chỉ ở repository>.
 
 **Việc cần làm:** <toàn văn US/issue/task + plan nếu Route C — các bước cụ thể, đánh số>.
@@ -344,13 +567,26 @@ Cập nhật index README (bảng "Index prompt hiện có") + board/tracking c�
 
 In cho user: đường dẫn file prompt vừa lưu + 1 dòng nhắc "mở worktree path ghi ở đầu file trong Antigravity, paste phần dưới `---` vào Gemini" (KHÔNG tự thực thi qua Bash). Bỏ qua Bước 6-8 trong lượt hiện tại (chưa có `_DONE.md` để verify).
 
-**Tự động theo dõi, không chờ user quay lại báo:** ngay sau khi in prompt, chạy 1 lệnh Bash nền (`run_in_background: true`) poll `_DONE.md` mỗi 30s:
+**Tự động theo dõi, không chờ user quay lại báo — VÀ không mù trong lúc chờ.** Poll xem `_DONE.md` đã tồn tại chưa là tín hiệu **nhị phân thuần tuý**: "đang làm bình thường" và "đã treo 20 phút" nhìn giống hệt nhau từ ngoài. Executor chạy qua CLI có stream sự kiện nên bên điều phối thấy tiến độ thật; executor chạy trong harness riêng thì không có gì cả — nên phải **bắt nó tự ghi log**.
+
+Prompt (khối bắt buộc, xem template trên) yêu cầu executor append `_PROGRESS.md` ở gốc worktree **ngay khi bắt đầu** và **sau mỗi bước có ý nghĩa**, format `HH:MM [THINKING|WORKING] <mô tả ngắn>`, append-only. Bên điều phối tail file đó:
 
 ```bash
-until [ -f "<path-worktree>/_DONE.md" ]; do sleep 30; done; echo "_DONE.md detected at $(date)"
+touch "<path-worktree>/_PROGRESS.md"
+LAST=0
+while [ ! -f "<path-worktree>/_DONE.md" ]; do
+  N=$(wc -l < "<path-worktree>/_PROGRESS.md" 2>/dev/null || echo 0)
+  if [ "$N" -gt "$LAST" ]; then tail -n +"$((LAST+1))" "<path-worktree>/_PROGRESS.md"; LAST=$N; fi
+  sleep 30
+done
+echo "[DONE] _DONE.md detected at $(date)"
 ```
 
-- Nhiều worktree Gemini chạy song song → mỗi worktree 1 lệnh poll riêng (chạy nền độc lập), không gộp chung 1 lệnh.
+Chạy nền (`run_in_background: true`) rồi bọc qua kênh notification của harness **ngay sau đó, cùng lượt** — mỗi dòng mới in ra = 1 tín hiệu thật, không phải bên điều phối tự suy luận.
+
+- `_PROGRESS.md` (log quá trình) **khác** `_DONE.md` (báo cáo cuối) — không gộp, không thay thế nhau. Log quá trình trả lời "còn sống không, đang ở đâu"; báo cáo cuối trả lời "làm được gì".
+- **Không có dòng mới sau 2 chu kỳ poll (10 phút)** ⇒ nghi treo, **báo user chủ động** thay vì im lặng chờ tiếp. Đây là lợi ích thật của tail so với chờ nhị phân.
+- Nhiều worktree chạy song song → mỗi worktree 1 lệnh poll riêng (chạy nền độc lập), không gộp chung 1 lệnh.
 - KHÔNG dùng foreground sleep-loop chặn session — luôn `run_in_background: true` rồi làm việc khác/để user tự dùng; harness sẽ báo khi lệnh nền hoàn tất (tức `_DONE.md` đã xuất hiện).
 - Lệnh nền timeout/kết thúc trước khi Gemini xong (task dài) → phát hiện qua việc `_DONE.md` vẫn chưa có, chạy lại đúng lệnh until-loop trên để tiếp tục theo dõi, không cần hỏi user.
 - User có thể vẫn tự báo "Gemini xong rồi" bất cứ lúc nào (không cần chờ tín hiệu nền) — khi đó kiểm tra `_DONE.md` ngay lập tức thay vì đợi vòng poll kế tiếp.
@@ -362,11 +598,37 @@ until [ -f "<path-worktree>/_DONE.md" ]; do sleep 30; done; echo "_DONE.md detec
 
 | Việc | Vai | Khi nào |
 |---|---|---|
-| typecheck/test/build/diff + scope | `role-verifier` (no write tools) | diff lớn hoặc nhiều bước kiểm; diff nhỏ thì bên điều phối tự chạy |
+| typecheck/test/build/diff + scope | `role-verifier` (no write tools) | **MỌI diff, MỌI executor** — trừ đúng một miễn trừ ở 6.0 |
 | hash ảnh + đối chiếu bảng PASS | `role-evidence-auditor` (model rẻ) | báo cáo có ảnh evidence hoặc bảng PASS/FAIL nhiều dòng |
 | review nghiệp vụ (GATE 0b) | `role-reviewer` (no write tools) | task đụng tiền/dữ liệu/permission/migration/production |
+| viết báo cáo + relay phản hồi rule | `role-reporter` (có Write, không Edit) | mọi task có executor ngoài main-loop |
 
 `role-verifier` hỏi *"chạy có xanh không"*, `role-reviewer` hỏi *"xanh mà có đúng không"* — hai câu khác nhau, đừng gộp một vai. Vai trả `FAIL`/`CHANGES NEEDED` thì bên điều phối sửa hoặc giao lại executor, **không tự nới bar**.
+
+### 6.0 — Sàn kiểm tối thiểu + miễn trừ có phản tỉnh
+
+**Mặc định: mọi diff của mọi executor đi qua `role-verifier` trước khi bên điều phối kết luận bất cứ điều gì.**
+
+Câu "diff nhỏ thì bên điều phối tự chạy" đã bị bỏ, vì nó tạo ra một đường mặc định **không có vai kiểm nào**: task sửa 2 file, không đụng tiền, không có ảnh ⇒ cả ba vai kiểm đều không chạy, còn lại đúng bên điều phối tự kiểm code mà chính nó vừa giao. Ca kiểm chứng: một báo cáo bịa đi qua **toàn bộ** quy trình verify thành văn lúc đó (diff + scope + build + test đều xanh); thứ bắt được nó là memory riêng của một phiên, không phải cổng nào trong quy trình.
+
+`role-verifier` chạy model rẻ hơn main-loop ⇒ sàn này **giảm** chi phí chứ không tăng.
+
+**Miễn trừ DUY NHẤT — task gọn.** Phải khớp TẤT CẢ: Route A · diff thực tế **≤2 file** · không chạm shared layer · không có ảnh/bảng PASS · không GATE 0b · **không phải một stream của Bước 2e** (task đã tách stream thì không bao giờ được miễn trừ, dù stream đó chỉ sửa 1 file).
+
+**Phản tỉnh (BẮT BUỘC, chạy trên DIFF THẬT).** Route A phồng thành B/C là chuyện thường; miễn trừ cấp lúc chấm route phải được xét lại lúc có diff. Ngay sau `git diff --stat`, trả lời 4 câu:
+
+| # | Câu hỏi | YES ⇒ |
+|---|---|---|
+| 1 | Diff đụng ≥3 file? | huỷ miễn trừ |
+| 2 | Diff chạm shared layer? | huỷ miễn trừ **+ bật GATE 0b** |
+| 3 | Có file nằm ngoài cụm scope đã giao? | huỷ miễn trừ |
+| 4 | Executor báo `BLOCKED`, có câu hỏi cho backend, hoặc nộp ảnh/bảng PASS? | huỷ miễn trừ (+ `role-evidence-auditor` nếu có ảnh) |
+
+Bất kỳ câu nào YES ⇒ **gọi `role-verifier` ngay**, không thương lượng, không "diff cũng nhỏ thôi".
+
+Câu 1 và 2 **trùng ngưỡng** với cổng escalation micro→spec ở cuối Bước 6 — cố ý dùng chung một ngưỡng: khi task phồng thì **cả hai** cổng cùng bật. Đừng bật một cái mà quên cái kia.
+
+Ghi kết quả phản tỉnh vào báo cáo cuối (`miễn trừ — phản tỉnh 4/4 NO` hoặc `huỷ miễn trừ (câu 2) → role-verifier + GATE 0b`). Không ghi = coi như chưa chạy phản tỉnh.
 
 **Verify BẰNG CHỨNG, không chỉ code (áp cho MỌI executor; bắt buộc khi báo cáo có bảng PASS/FAIL hoặc ảnh evidence).** Bước 6 vốn chỉ kiểm code — `diff`/scope/build/typecheck — nên một báo cáo bịa *bằng chứng* vẫn đi qua sạch sẽ. Năm check dưới đây đóng đúng chỗ đó:
 
@@ -378,9 +640,13 @@ until [ -f "<path-worktree>/_DONE.md" ]; do sleep 30; done; echo "_DONE.md detec
 
 **Relay đề xuất đổi rule (áp cho MỌI executor, chạy ngay sau khi đọc báo cáo).** Executor thường **không với tới được** thư mục rule dùng chung: nó làm trong worktree của repo product, còn rule/harness nằm ở repo khác, và prompt của nó thường cấm hẳn đọc thư mục config của agent. Nên tiếng nói của nó vào rule qua đúng một đường: mục `## Đề xuất đổi rule` trong báo cáo → bên điều phối chuyển tiếp. Ba điều kiện, thiếu một cái là relay biến thành cửa kiểm duyệt:
 
+**Người relay là `role-reporter`, KHÔNG phải main-loop.** Rule bị phê bình phần lớn do bên điều phối viết ra, nên để nó vừa nhận vừa diễn đạt lại lời phê bình mình là mâu thuẫn vai — trước đây chỉ vá bằng thủ tục (điều kiện 3 dưới đây), nay vá bằng phân công. `role-reporter` chạy model rẻ vì việc này là **chép + đối chiếu cơ học**, cùng tầng `role-evidence-auditor`.
+
 1. **Nguyên văn.** Copy y hệt lời executor, đặt trong blockquote. Chỉ được **thêm**, không được viết lại — chất liệu root-cause quý nhất là *agent nói bằng lời của nó rằng nó tưởng cái gì*, tóm tắt lại là mất đúng chỗ đó.
-2. **Tách phần của bên điều phối.** Số đo đã chạy lại đặt trong mục riêng `## Verify`, KHÔNG trộn vào lời executor. Đây là điểm relay hơn cho ghi trực tiếp: câu khai được đính bằng chứng đã kiểm thay vì thành một bản tự báo cáo nữa.
-3. **Không đồng ý thì vẫn phải ghi lại**, `status: rejected` + lý do. Rule bị phê bình phần lớn do bên điều phối viết, nên nó không được vừa là cổng vào vừa là quan toà.
+2. **Tách phần đo.** Số đo đã chạy lại đặt trong mục riêng `## Verify`, KHÔNG trộn vào lời executor. Đây là điểm relay hơn cho ghi trực tiếp: câu khai được đính bằng chứng đã kiểm thay vì thành một bản tự báo cáo nữa.
+3. **Không đồng ý thì vẫn phải ghi lại**, `status: rejected` + lý do, đặt trong `## Verify` như một quan điểm có ghi tên — **không** được sửa lời executor cho khớp.
+
+`role-reporter` có `Write` nhưng **không có `Edit`**: tạo file mới thì vô hại, sửa đè thì có thể lặng lẽ viết lại lời khai của executor — đúng thứ vai này sinh ra để không xảy ra. Fence cứng là `git status --short` mà Bước 6 vốn đã chạy: nó chỉ được ghi ngoài repo sản phẩm.
 
 **Cổng escalation `MICRO` → US (áp cho MỌI executor, chạy ngay khi thấy diff thật)**: nếu Bước 2c chấm `MICRO` mà diff thực tế đụng **≥3 file** HOẶC chạm **shared layer** (`httpClient`, auth adapter, `queryKeys`, AuthProvider, shared repository/context) HOẶC phát sinh câu hỏi BE → **DỪNG** theo rule "Escalation (chống lan man)" trong `task-sizing.md`:
 
@@ -432,12 +698,18 @@ Theo `.agent-rules.d/obsidian-us-workflow.md` (đọc file này nếu chưa đ�
 
 ## Bước 8 — Báo cáo cuối
 
-Bảng ngắn (Route A/B/C, executor Sonnet 5/Codex):
+**Bảng này do `role-reporter` soạn, main-loop chỉ in ra + bổ sung phần quyết định của mình.** Lý do tách: bên điều phối tự chấm điểm cho chính mình thì phần "còn gap gì" luôn là phần bị rút gọn đầu tiên. Reporter đọc báo cáo executor + output các vai kiểm rồi điền bằng **số máy dán vào**, không bằng tính từ.
+
+Bảng ngắn (Route A/B/C, executor subagent/CLI):
 
 | Mục | Giá trị |
 |---|---|
 | Route | A/B/C + 1 dòng lý do |
-| Model | model + effort (Route A: "Sonnet 5" hoặc Codex model+effort — không bao giờ model main-loop) |
+| Repo profile | `VAULT` / `IN-REPO DOCS` / `BARE` (Bước 0.5) — phiên sau khỏi dò lại |
+| Model | model + effort — kèm **user đã chọn** hay bên điều phối chốt hộ vì hết trần câu hỏi |
+| Đánh giá model | tuổi `last-verified` của hãng đã dùng (Bước 2a) |
+| **Streams** | `đơn` hoặc `N stream` (Bước 2e) + bảng tài nguyên chia sẻ chốt ở đâu + thứ tự merge thực tế |
+| **Sàn kiểm** | `role-verifier` đã chạy / `miễn trừ — phản tỉnh 4/4 NO` / `huỷ miễn trừ (câu <n>) → role-verifier` (Bước 6.0) |
 | Branch | tên nhánh + base |
 | Files | danh sách file đổi |
 | Build/Test | kết quả + regression nếu có |
@@ -506,6 +778,14 @@ Nếu project không có board riêng dạng agent-orchestration (task ngoài ep
   Ở Bước 6 bên điều phối luôn tự chạy typecheck và **grep theo đường dẫn file trong diff** — đây là check bắt lỗi nhiều nhất trong thực tế, không được bỏ dù executor đã báo pass.
 - **Bịa là đầu ra hợp lý của protocol, không phải tính cách của một model cụ thể.** Cùng một `_DONE.md`, khi prompt chỉ đòi **phán quyết bằng văn xuôi** ("build xanh", "PASS") thì executor bịa; khi prompt đòi **con số + baseline + câu "bên điều phối re-run tất cả"** thì nó khai đúng. Kiểm chứng trong CÙNG một task, cùng model: lượt 1 (đòi văn xuôi) bịa 6 nhóm field; lượt 2 (đòi con số, có baseline) khai đúng từng số, chạy lại khớp hết. Executor khác cũng bịa y hệt khi được hỏi kiểu đó (báo "no files outside the task surface changed" trong khi đã tạo một script throwaway ở repo root **có hardcode credential**). Vì vậy: **đừng sửa bằng cách dặn executor "đừng bịa" — sửa bằng cách làm cho câu khai có thể sai được (falsifiable).** Mọi ô trong `_DONE.md` phải là output máy dán vào mà bên điều phối re-run được.
 - **Verify EVIDENCE, không chỉ code** — hash ảnh (trùng byte = bịa), AC hành vi mà evidence là "static code review" thì là BLOCKED chứ không PASS, `git status` trước khi tin ảnh (ảnh trên build đã patch = vô giá trị), câu tổng quát tự khen phải tự kiểm bằng `diff`/`grep`. Chi tiết ở Bước 6 §"Verify BẰNG CHỨNG". Lý do cần ghi thành rule: Bước 6 trước đây chỉ kiểm code, nên báo cáo bịa *bằng chứng* đi qua sạch.
+- **State công việc phải nằm trong `.agent-tasks/`, không nằm trong hội thoại (Bước 0.6).** Đầu mỗi lượt: liệt kê task TRƯỚC khi tạo mới — có task dở khớp yêu cầu thì tiếp tục nó. Cuối mỗi lượt mà việc chưa xong: **bắt buộc handoff**, nếu không task treo với owner cũ và agent khác bị chặn claim. Đây là SPOF thật: bên điều phối vừa planner vừa verifier vừa committer, hết quota giữa dòng là không ai nhặt lên tiếp được.
+- **Chốt REPO PROFILE ở Bước 0.5 trước mọi thứ khác.** Skill này viết cho repo có rule file + thư mục tài liệu ngoài repo; repo khác có thể không có gì trong hai thứ đó, và **đó là trạng thái hợp lệ**. Chỉ DỪNG hỏi user khi profile là VAULT mà file khai báo path không đọc được. Trước khi chốt BARE phải `ls` tìm một lượt — thiếu file khai báo không chứng minh là không có thư mục tài liệu.
+- **Sàn kiểm tối thiểu: MỌI diff của MỌI executor qua `role-verifier`.** Miễn trừ duy nhất là task gọn (≤2 file, không shared layer, không ảnh/bảng PASS, không GATE 0b, **không phải stream của Bước 2e**), và chỉ có hiệu lực sau **phản tỉnh 4 câu chạy trên DIFF THẬT** — không phải trên ước lượng lúc chấm route. Câu 1–2 dùng chung ngưỡng với cổng escalation micro→spec: task phồng thì cả hai cổng cùng bật.
+- **Tách stream song song có bên chia việc (Bước 2e), không còn là chuyện tự phát.** Trigger: Route B/C **và** ≥4 file **và** ≥2 cụm rời tự verify được — Route A không bao giờ tách. Trần 3 stream. Người chia là `role-planner`. **Điều kiện CHẶN**: bảng "tài nguyên chia sẻ ở runtime" phải chốt trước, mỗi thứ có đúng 1 file sở hữu — không chốt được thì chạy đơn stream. Merge **tuần tự**, kiểm chéo shape, typecheck lại trên nhánh tích hợp. `git merge` sạch KHÔNG phải bằng chứng hai stream tương thích.
+- **Model KHÔNG bao giờ do agent tự chốt im lặng — luôn hỏi user, kèm phân tích có SỐ.** Gộp thành MỘT câu hỏi dạng cặp `executor · model · effort` (model phụ thuộc executor, mà một lượt hỏi không rẽ nhánh được — tách ra là đẻ thêm lượt). `description` mỗi option là số + nguồn từ hồ sơ, **không phải tính từ**. Luôn kèm ≥1 option thay thế để thấy trade-off.
+- **Hạn đánh giá model 3 ngày (Bước 2a).** Quá hạn ⇒ đề nghị user chạy `/model-audit` trước khi trích số; đi tiếp thì phải gắn nhãn `[đánh giá tới <ngày>, chưa kiểm lại]`. **Cấm** im lặng dùng số quá hạn như số mới, **cấm** phịa đánh giá cho đủ ô. Cache model của CLI KHÔNG thoả mãn gate này — cache nói model nào *tồn tại*, gate hỏi nó *giỏi việc gì*.
+- **BẮT BUỘC đọc hồ sơ năng lực mỗi lần chia task (Bước 2b) — 3 mục, và mục "Bằng chứng thực địa" phải có ĐẦU RA.** Failure mode đã ghi nhận của **đúng executor sắp giao** phải được dịch thành ràng buộc kiểm được và nhúng vào prompt Bước 5. Đọc mà không nhúng = bằng không đọc: hồ sơ sinh ra để **lỗi không lặp lại**, không phải để lưu trữ. Executor chưa có tiền lệ ⇒ ghi `chưa có tiền lệ ghi nhận`, KHÔNG bịa cho đủ khối.
+- **Báo cáo cuối + relay phản hồi rule do `role-reporter` viết, KHÔNG do main-loop.** Rule bị phê bình phần lớn do bên điều phối viết ra — không được vừa là bên nhận vừa là bên diễn đạt lại. Vai này có `Write` nhưng không `Edit`; cổng cứng là `git status --short`.
 - **Phân vai bằng agent definition, không bằng lời dặn trong prompt** (xem `agents/`). Frontmatter cho 3 thứ prompt không làm được: `tools` là allowlist **deny-by-omission** (cổng cứng), `effort` chỉ đặt được ở frontmatter, `model` dùng alias nên không phải sửa file khi lên generation mới. Vai kiểm/review/plan **không có tool ghi** — người kiểm mà sửa được code thì sẽ vá cho xanh. Ca kiểm chứng: prompt cấm rõ sửa file source, cho phép nói BLOCKED, executor vẫn sửa 7 file để 32/32 AC thành PASS. Đổi model/effort = sửa frontmatter, **KHÔNG truyền model ở call site**.
 - **Executor phải có đường phản hồi về rule, và đường đó đi qua bên điều phối** vì executor không với tới được thư mục rule dùng chung (nó ở repo khác, và prompt executor thường cấm đọc thư mục config của agent). Mọi prompt executor bắt buộc có mục `## Đề xuất đổi rule` (ghi `Không có` nếu không có); Bước 6 relay theo 3 điều kiện: nguyên văn · tách phần verify của bên điều phối · không đồng ý vẫn phải ghi lại `status: rejected`. Điều kiện 3 vì rule bị phê bình phần lớn do bên điều phối viết — không được vừa là cổng vào vừa là quan toà.
 - **File agent tự viết trả lời "vì sao nó làm vậy", không trả lời "nó có đúng không".** Áp cho `_DONE.md`, memory/brain riêng của agent, và cả đề xuất đổi rule: dùng làm **giả thuyết** root cause (nó tưởng shape dữ liệu là gì, đọc rule nào) — không bao giờ làm **phán quyết**.
