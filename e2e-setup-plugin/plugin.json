@@ -1,0 +1,5 @@
+{
+  "name": "e2e-setup-plugin",
+  "version": "1.0.0",
+  "description": "Dựng năng lực browser E2E + evidence screenshot cho AI coding agent trong bất kỳ workspace (worktree, folder trần, repo mới) — dò host/runner/browser theo ladder, chứng minh bằng smoke test thật (PNG có thật trên đĩa), chạy luồng người-dùng thật qua flow.mjs, và đóng gói+upload evidence lên GitHub Release qua publish.mjs. Không cần cài package vào project đích."
+}

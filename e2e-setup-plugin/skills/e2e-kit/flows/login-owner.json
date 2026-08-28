@@ -1,0 +1,39 @@
+{
+  "_doc": [
+    "Đăng nhập THẬT qua form UI bằng tài khoản owner. Đây là đường 'giống người thật dùng nhất':",
+    "gõ vào form, bấm submit, chờ app tự điều hướng.",
+    "",
+    "Khác với scripts/capture-evidence.mjs: script đó signin qua API rồi nhét token vào localStorage.",
+    "Cách đó hợp lệ để TỚI được một màn hình, nhưng KHÔNG chứng minh luồng đăng nhập chạy đúng.",
+    "Flow này chứng minh luồng đó.",
+    "",
+    "Credential không nằm trong file này — engine nội suy ${...} từ env/.env.local và không bao giờ",
+    "in giá trị ra output. Thiếu biến ⇒ flow fail với thông báo nói rõ thiếu biến nào.",
+    "",
+    "Không hardcode route đích: app điều hướng về /dashboard, /staff hoặc /onboarding tuỳ loại tài",
+    "khoản (src/app/LoginScreen.tsx:81-85), nên bằng chứng là 'đã rời khỏi /login'.",
+    "",
+    "LƯU Ý: flow này gọi API đăng nhập thật. Chỉ chạy với tài khoản E2E, đừng dùng tài khoản người thật."
+  ],
+
+  "name": "login-owner",
+  "target": "dev",
+  "viewport": "desktop",
+  "login": "none",
+  "role": "owner",
+  "trace": true,
+  "video": true,
+
+  "steps": [
+    { "goto": "/login" },
+    { "waitFor": { "css": "form button[type=\"submit\"]" } },
+    { "shot": "01-truoc-khi-dang-nhap" },
+
+    { "fill": { "css": "form input", "nth": 0, "value": "${ROLE_EMAIL}" } },
+    { "fill": { "css": "form input[type=\"password\"]", "value": "${ROLE_PASSWORD}" } },
+    { "click": { "css": "form button[type=\"submit\"]" } },
+
+    { "expectUrlNot": "/login" },
+    { "shot": "02-sau-khi-dang-nhap" }
+  ]
+}
