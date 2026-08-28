@@ -16,6 +16,7 @@
   "target": "dev",
   "viewport": "desktop",
   "login": "none",
+  "allowLoginRoute": true,
   "trace": true,
   "video": true,
 

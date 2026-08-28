@@ -606,6 +606,27 @@ try {
 
         // ---- chụp (chỉ được phép khi đã chứng minh) ----
         case 'shot': {
+          // Guard cứng, KHÔNG phụ thuộc flow author nhớ viết đúng proof step: nếu trang hiện tại
+          // đang là route login (theo login.json) mà flow không CHỦ Ý muốn chụp chính màn login
+          // (allowLoginRoute), coi đây luôn là FAIL — bất kể expectVisible/expectText trước đó có
+          // "đạt" hay không (chúng có thể match nhầm 1 phần tử tồn tại ở cả 2 trang, ví dụ logo/header
+          // chung). Đây là ca thật đã gặp: agent chụp thẳng route cần đăng nhập mà không truyền
+          // `--login ui` (hoặc thiếu credential), app redirect về /login, ảnh /login vẫn được lưu và
+          // báo PASS vì có 1 expectVisible generic đi qua. Guard này chặn đúng lỗ hổng đó ở gốc.
+          if (LOGIN_CFG?.route && !(flow.allowLoginRoute || step.allowLoginRoute)) {
+            const currentPath = new URL(page.url()).pathname
+            if (currentPath.startsWith(LOGIN_CFG.route)) {
+              throw new Error(
+                `ĐANG Ở MÀN LOGIN (${currentPath}) thay vì trạng thái flow yêu cầu — không được chụp và báo PASS. ` +
+                  `Nguyên nhân thường gặp: route đích cần đăng nhập nhưng flow không dùng "login": "ui", hoặc ` +
+                  `dùng "login": "ui" nhưng thiếu credential cho role "${role}" (login.json/performUiLogin đã ` +
+                  `throw riêng nếu vậy — lỗi này nghĩa là flow chưa từng cố đăng nhập). KHÔNG tự chụp màn login rồi ` +
+                  `báo hoàn thành — dừng lại và hỏi user credential/role đúng, hoặc thêm "login": "ui" vào flow. ` +
+                  `Nếu flow này CỐ Ý muốn chụp chính màn login (vd flow tự-kiểm form), set "allowLoginRoute": true ` +
+                  `ở flow-level hoặc step-level.`,
+              )
+            }
+          }
           if (!provenSinceLastShot) {
             throw new Error(
               'chụp mà chưa chứng minh đã tới đúng trạng thái — cần một bước waitFor/expectText/' +

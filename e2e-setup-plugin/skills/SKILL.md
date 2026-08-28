@@ -519,6 +519,15 @@ thì executor sẽ hoặc bịa, hoặc từ chối — cả hai đều tốn m�
   vào cache máy chứ không vào project nên không phạm `no dependency changes`. Dưới sandbox mặc định của
   Codex thì nó vẫn không chạy được (cần network + ghi ngoài workspace) — khi đó `BLOCKED` là đúng.
 - **`.e2e/` không phải rác cần dọn.** Nó đã untracked qua `info/exclude`; executor đừng xoá.
+- **Chụp trúng màn login mà flow không cố ý ⇒ luôn FAIL, không bao giờ PASS.** Ca thật đã gặp: route đích
+  cần đăng nhập, flow không dùng `"login": "ui"` (hoặc thiếu credential), app redirect về `/login`, một
+  `expectVisible` chung chung (vd `body`, logo/header xuất hiện ở cả 2 trang) vẫn "đạt" ⇒ ảnh /login được
+  lưu và báo `FLOW_VERIFIED` như thể đã chụp đúng màn. Engine tự so `page.url()` với `route` trong
+  `login.json` ngay tại mỗi `shot` — khớp thì FAIL cứng kèm lý do actionable (thiếu `"login": "ui"` hay
+  thiếu credential), bất kể proof step trước đó có "đạt" hay không. **Agent đọc được lỗi này thì dừng lại
+  hỏi user credential/role, KHÔNG tự chụp màn login rồi báo hoàn thành.** Flow nào cố ý chụp chính màn
+  login (vd bài tự-kiểm `login-form-interaction.json`) phải khai `"allowLoginRoute": true` ở flow-level
+  hoặc step-level để tắt guard này.
 - **Bốn viewport chuẩn, mỗi viewport là một browser context mới.** Desktop `1440x900` (DSF 1); tablet
   portrait `768x1024`, tablet landscape `1024x768`, mobile `375x812` (ba loại sau DSF 2, `isMobile:true`,
   `hasTouch:true`). Không tái dùng business state (session/giỏ hàng/form đang điền...) từ viewport trước
