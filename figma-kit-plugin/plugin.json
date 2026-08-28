@@ -1,5 +1,5 @@
 {
   "name": "figma-kit-plugin",
   "version": "1.0.0",
-  "description": "Plugin for synchronizing Figma flows with design-system components, Dev Mode friendly Auto Layout, and missing master component creation."
+  "description": "Designing hi-fi screens against a product that already ships code or a design system: extract the token/type/spacing/radius scales mechanically from the truth source instead of hand-transcribing them, reuse existing components before drawing new ones, and gate the handoff on a conformance audit that counts violations per axis."
 }
