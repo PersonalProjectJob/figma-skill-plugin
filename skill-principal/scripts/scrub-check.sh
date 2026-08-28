@@ -37,6 +37,7 @@ DENYLIST=(
   "tên người thật|SotaThao|pthngoc|tnsthao94"
   "đường dẫn máy|C:.(Users|Shared).[^<]|/c/Users/|Users.AD|Obsidian.shancao"
   "id vận hành|Thread [0-9]{3}|\(#5[0-9]\)"
+  "ticket/vòng nội bộ|Round[[:space:]]+[0-9]"
   "epic nội bộ|community-341"
   "codename model nội bộ|gpt-5\.[0-9]+-(sol|terra|luna)"
   "email/credential|@gmail|@vlink|(api_secret|api_key|password|token)[[:space:]]*[:=][[:space:]]*['"'"'\"][^'"'"'\"<$]{8,}|Bearer [A-Za-z0-9]{8,}|[0-9]{8,10}:[A-Za-z0-9_-]{30,}"
