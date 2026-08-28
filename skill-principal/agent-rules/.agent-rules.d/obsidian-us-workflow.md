@@ -1,5 +1,7 @@
 # Obsidian Sprint & User Story Workflow Rule
 
+> ⚠️ File này chỉ áp dụng cho **profile VAULT** (repo có cấu hình thư mục tài liệu ngoài repo — xem `dispatch/SKILL.md` Bước 0.5). Repo không có vault thì bỏ qua toàn bộ file này: spec sống trong `docs/` của repo hoặc trong issue body.
+
 > **Trước khi tạo US**: chạy **Task Tier Gate** trong `.agent-rules.d/task-sizing.md`. Micro task (< 2h, không đổi business logic) KHÔNG tạo US/folder — chỉ ghi 1 dòng vào section `## 🔗 Ad-hoc PRs & Issues` của sprint file active theo format trong `task-sizing.md`. Khi closeout, micro task đã hoàn thành Dev chỉ được tính giờ trong sprint nơi Dev thực hiện. Nếu QA/review còn mở, sprint mới chỉ theo dõi bằng bullet thường trong `## 🧪 QA Follow-up từ Week-XX (không tính giờ)`, không dùng checkbox và không ghi `(Xh)`.
 
 > **US là spec-IN, không phải record-OUT** (áp dụng cho MỌI agent: Claude, Codex, Gemini/Antigravity). US phải được viết **TRƯỚC** khi bắt đầu code, vì nó là văn bản được nhúng nguyên văn vào prompt giao cho executor — executor không đọc được vault lẫn hội thoại của phiên khác. **KHÔNG retro-tạo US chỉ để lưu vết** công việc đã làm: lưu vết là việc của GitHub issue body + dòng ad-hoc trong sprint file. Ngoại lệ duy nhất được tạo US hồi tố: tier gate chấm "micro" nhưng scope phình thật (≥3 file / chạm shared layer / phát sinh câu hỏi BE) — xem "Escalation" trong `task-sizing.md`.

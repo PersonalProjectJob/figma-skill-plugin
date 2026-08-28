@@ -2,12 +2,14 @@
 
 Whenever the user requests to export a report or walkthrough, or when a tester agent completes a test run:
 
-1. ALWAYS save or copy the markdown report to the appropriate folder in the Obsidian vault:
-   a. **Sprint-level reports** (e.g., weekly reports, general QA reports): `${VAULT_ROOT}\Sprints\<week-name>\Reports\`
-   b. **US-specific reports** (e.g., test plans, walkthroughs): the directory that contains the US markdown file, normally `${VAULT_ROOT}\Sprints\<week-name>\<US-folder>\`.
-   c. **Micro/ad-hoc task without a US**: `${VAULT_ROOT}\Sprints\<active-week>\Ad-hoc Evidence\<issue-slug>\`.
+1. ALWAYS save or copy the markdown report to the evidence folder of the repo/project you're working in:
+   - **If this repo has a vault configured** (`${VAULT_ROOT}` set — see `dispatch/SKILL.md` Bước 0.5), use the appropriate folder in the Obsidian vault:
+     a. **Sprint-level reports** (e.g., weekly reports, general QA reports): `${VAULT_ROOT}\Sprints\<week-name>\Reports\`
+     b. **US-specific reports** (e.g., test plans, walkthroughs): the directory that contains the US markdown file, normally `${VAULT_ROOT}\Sprints\<week-name>\<US-folder>\`.
+     c. **Micro/ad-hoc task without a US**: `${VAULT_ROOT}\Sprints\<active-week>\Ad-hoc Evidence\<issue-slug>\`.
+   - **No vault configured**: attach directly to the GitHub issue/PR — that is the canonical storage location, not a fallback.
 2. If browser live tests, E2E flows, manual walkthroughs, PR drafting, or issue creation generate screenshots/video (`.png`, `.jpg`, `.mp4`, `.webm`), save the original files directly into the destination above. GitHub `user-attachments` is a distribution copy, not the local source of truth.
-3. A temp/scratch directory may be used only when a tool cannot target the vault directly. Before reporting completion or uploading to GitHub, copy the artifact into the canonical Obsidian destination, verify it exists there, and use that persistent file for upload. Never leave the only copy in `%TEMP%`, a scratchpad, `.gstack/`, or the source repo.
+3. A temp/scratch directory may be used only when a tool cannot target the destination directly. Before reporting completion or uploading to GitHub, copy the artifact into the canonical persistent destination you selected above (vault or issue/PR attachment), verify it exists there, and use that persistent file for upload. Never leave the only copy in `%TEMP%`, a scratchpad, `.gstack/`, or the source repo.
 4. **Expected Full US structure**:
 
    ```text

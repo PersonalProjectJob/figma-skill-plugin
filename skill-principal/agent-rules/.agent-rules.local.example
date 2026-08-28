@@ -5,11 +5,16 @@
 # nhờ đó rule dùng chung được cho nhiều máy mà không lộ cấu trúc thư mục cá nhân.
 #
 # Agent: đọc `.agent-rules.local` TRƯỚC khi thực hiện bất kỳ rule nào có chứa ${...}.
-# Không tìm thấy file → DỪNG và hỏi user, không được đoán đường dẫn.
+# Không tìm thấy file → coi như không có path ngoài repo, chạy tiếp ở profile BARE.
+# Chỉ DỪNG hỏi user khi rule đích danh cần một path ngoài repo cụ thể. Không đoán đường dẫn.
 
+# TUỲ CHỌN — bỏ trống nếu bạn không dùng vault. Không khai báo thì skill chạy
+# ở profile BARE (xem skills/dispatch/SKILL.md Bước 0.5): không có spec gate
+# ngoài repo, tracking bằng issue + PR thay vì US trong vault.
 # Thư mục project trong vault Obsidian — chứa Sprints/, Reports/, Templates/
 VAULT_ROOT=<đường dẫn thư mục project trong vault Obsidian>
 
+# TUỲ CHỌN — bỏ trống nếu bạn không dùng vault (cùng điều kiện như VAULT_ROOT ở trên).
 # Thư mục gốc vault Obsidian (cha của VAULT_ROOT) — chứa doc cross-project
 OBSIDIAN_ROOT=<thư mục gốc vault Obsidian, cha của VAULT_ROOT>
 
