@@ -16,13 +16,13 @@ Automates the extraction and creation of a Figma Design System based on the code
 - **Component Building**: Automates the construction of foundational component sets with variants aligned with the token naming structure.
 - **Strict Token Adherence**: Ensures every color, padding, gap, and size maps directly to a defined token.
 
-### 2. ⚡ Generate Figma Kit (`generate-figma-kit`)
-Audits and synchronizes Figma product flows so they are ready for Dev Mode and agentic design-to-code through figma-console MCP.
-- **Design-System Synchronization**: Searches existing local/library components first, then applies shared instances across repeated flow screens.
-- **Missing Master Components**: Creates flow-specific master components when a reusable pattern is missing, such as headers, hero sections, tabs, rows, filter bars, empty states, and bottom sheets.
-- **Dev Mode Auto Layout**: Converts repeated UI into meaningful Auto Layout hierarchy where the root component is the real container and text lives inside its chip/card/row.
-- **Instance Application**: Replaces duplicated manual layers with component instances while preserving text overrides through component properties.
-- **Regression QA**: Screenshots changed masters and target flows, checking clipping, incorrect wrapping, overlay labels, variant bounds, and component-instance consistency.
+### 2. ⚡ Designing Hi-Fi Screens Against a Real System (`designing-hifi-screens`)
+For producing hi-fi screens for a product that **already exists** — the output must be indistinguishable in construction from what the product already ships, not merely similar in colour. Works in both Figma (via figma-console MCP) and Pencil.
+- **Consistency is a grammar problem, not a vocabulary problem**: correct hex values are the vocabulary level, necessary and nowhere near sufficient. What a reviewer calls "inconsistent" lives in the type scale, the spacing scale, the radius scale, the shell the screen sits in, and whether repeated UI is reused or redrawn by hand. A design can score 100% on colour and still be rejected — that exact outcome is the baseline failure this skill exists to prevent.
+- **The Iron Law — never hand-transcribe the design system**: every token value, component name, and scale step must be extracted mechanically from the truth source during the session, with the extraction output pasted in as evidence. A hand-typed token table is a lossy copy; the gaps get filled with framework defaults that look plausible and are wrong.
+- **Truth Source Gate**: asks where the truth actually lives before drawing anything, instead of assuming.
+- **Reuse before creating**: searches existing local/library components first; creates a master only when the pattern genuinely does not exist. Keeps Auto Layout meaningful for Dev Mode handoff.
+- **Conformance audit gates the handoff**: the bundled `conformance-audit.py` counts violations per axis (type, spacing, radius, font family, raw colour, token binding, reuse) against an allowlist extracted this session, and exits non-zero when any axis fails — so "looks right" is replaced by a number before anything is called done.
 
 ### 3. 🖼️ Remove Background Graphic (`remove-background-graphic`)
 Streamlines the creation and editing of graphical assets and illustrations inside Figma.

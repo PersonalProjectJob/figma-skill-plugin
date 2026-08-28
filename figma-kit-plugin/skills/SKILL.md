@@ -1,146 +1,136 @@
 ---
-name: generate-figma-kit
-description: Audit and synchronize Figma flows with the project design system through figma-console MCP: reuse existing components, create missing master components, enforce Dev Mode friendly Auto Layout, and replace duplicated manual UI with component instances.
+name: designing-hifi-screens
+description: Use when designing hi-fi screens in Figma or Pencil for a product that already has shipped code or a design system, or when a hi-fi deliverable was rejected as inconsistent with the existing system, off-brand, or "looks like a generic dashboard".
 ---
 
-# Figma Kit Design-System Synchronizer
+# Designing Hi-Fi Screens Against a Real System
 
-Use this skill when the user asks to fix, synchronize, generate, or prepare a Figma flow for design-to-code through `figma-console` MCP.
+## Overview
 
-The goal is not only visual cleanup. The final Figma file must be useful for engineers and agents reading Dev Mode: repeated UI should be represented by shared master components, component instances should replace manual duplicates, and Auto Layout should describe the actual structure of the UI.
+You are acting as a UX/UI Designer producing hi-fi screens for a product that **already exists**. The screens must be indistinguishable in construction from what the product already ships — not merely similar in colour.
 
-This skill is based on the NiFit Meal flow remediation session:
-- Synced repeated screens to a shared design system.
-- Created missing master components for a full app flow.
-- Converted manual Figma layers into Dev Mode friendly Auto Layout.
-- Replaced repeated screen sections with component instances.
-- Fixed broken component anatomy such as card backgrounds plus overlay text, chip backgrounds plus overlay labels, and inconsistent variant layouts.
+**Core principle: consistency is a grammar problem, not a vocabulary problem.**
 
----
+Using the product's exact colour values is the *vocabulary* level. It is necessary and nowhere near sufficient. What a reviewer perceives as "inconsistent" lives at the *grammar* level: the type scale, the spacing scale, the radius scale, the shell the screen sits in, and whether repeated UI is reused or redrawn by hand.
 
-## 1. Non-Negotiable Workflow
+A design can use 100% correct hex values and still be rejected. That exact outcome is the baseline failure this skill exists to prevent (see Baseline Failure).
 
-### 1.1 Connect and inspect first
+## When to Use
 
-Before any write:
+- Designing new hi-fi screens for an existing product, in **Figma** or **Pencil**
+- A hi-fi deliverable came back as "not consistent with the system", "doesn't follow the design system", or with a low conformance score
+- Extending a product with a new module that must slot into existing navigation
+- Porting a design or prototype from another product into this one
+- Remediating an existing flow to the design system (the original scope of this skill)
 
-1. Call `figma_list_open_files` and confirm the active file is correct.
-2. Call `figma_search_components` for the project prefix and for the target flow keywords.
-3. Inspect the target node with `figma_execute`.
-4. Return a short gap analysis:
-   - Existing design-system components that can be reused.
-   - Missing master components.
-   - Manual duplicated UI that should become instances.
-   - Auto Layout or layer structure problems that block design-to-code.
+**Do NOT use for:** greenfield products with no design system and no shipped code — there is no truth source to conform to, so do exploratory visual direction instead. Also not for pure wireframes where visual fidelity is explicitly out of scope.
 
-Never guess node IDs from memory. Re-read the current file state in the active Figma session.
+## The Iron Law
 
-### 1.2 Mutate incrementally
+```
+NEVER HAND-TRANSCRIBE THE DESIGN SYSTEM.
+```
 
-Use small `figma_execute` scripts. Each write must return:
+Every token value, component name, and scale step you use must be **extracted mechanically from the truth source during this session**, with the extraction output pasted into your report as evidence.
 
-- Created or mutated node IDs.
-- Component names.
-- Variant names.
-- Any component properties created or changed.
+The moment a human or an upstream agent types a token table into your brief by hand, that table is a lossy copy: it will be incomplete, and you will fill the gaps with framework defaults that look plausible and are wrong.
 
-Do not run parallel write calls against Figma. Read-only calls can be parallelized, but Figma mutations should be sequential.
+**No exceptions:**
+- Not when the brief "already includes the tokens" — verify the list is complete against source, and say so
+- Not when you only need "one more colour"
+- Not when the value is "obviously" the standard one for that framework
+- A token you need but cannot find is a **BLOCKED** condition, not an invitation to invent one
 
-### 1.3 Visual validation is required
+## Step 0 — Truth Source Gate (ASK, never assume)
 
-After creating or modifying visual design:
+Before any extraction, establish which artefact is authoritative. **Ask the user.** Do not choose for them.
 
-1. Capture the changed master component or flow node with `figma_capture_screenshot`.
-2. Inspect spacing, alignment, clipping, text wrapping, and hierarchy.
-3. Fix regressions before moving to the next component.
-4. Capture a final screenshot of the target flow or section.
+| Option | Truth source | Use when |
+|---|---|---|
+| **A. Source code** | Shipped repo: theme/config file, CSS custom properties, real screen components, routing/menu config | Code exists and is deployed. Strongest — it is what users actually see. |
+| **B. Design system file** | Figma variables, text styles, published component library | No code yet, or code lags the design system |
+| **C. Both, with precedence** | Both, user names which wins on conflict | Both exist. Default recommendation: **code wins** (it ships); log every divergence found. |
 
----
+Record the chosen option and exact paths / file keys in your report. If the user does not answer, **stop** — do not default silently. A wrong truth source invalidates everything downstream.
 
-## 2. Design-System Sync Rules
+## Step 1 — Mechanical extraction
 
-### 2.1 Reuse before creating
+Run extraction against the chosen source. Paste raw output into your report.
 
-Search local and library components first:
+**Option A — source code:**
+- Locate the theme source: `tailwind.config.*`, `theme.*`, `tokens.*`, `:root{--*}` in global CSS, or the design-token package
+- Extract **every** token in the product namespace — colour, radius, spacing, font size, shadow. Count them. If your brief lists fewer, the brief is wrong; use source
+- Extract the real construction of 2–3 **existing screens of the same type** as the one you are designing. Record actual class strings / style props for: page header, list row, primary button, input, chip, toggle, empty state
+- Extract the real navigation structure from routing/menu config
 
-- Buttons
-- Cards
-- Badges / chips
-- Tabs
-- Bottom navigation
-- Headers
-- Rows / list items
-- Empty states
-- Bottom sheets
-- Flow-specific sections
+**Option B — design system file (Figma):**
+- `figma.variables.getLocalVariableCollectionsAsync()` → every collection, every variable, resolved per mode
+- `figma.getLocalTextStylesAsync()` → the complete type ramp
+- `figma_search_components` → component / component-set inventory with node IDs and variant axes
+- Screenshot 2+ **assembled real screens** and look at them. Reading a token table is not seeing the product.
 
-If a suitable component exists, use an instance and configure it through variants or component properties.
+**Output is a Token Manifest**: the complete allowlist of values you may use. Anything not in it is forbidden.
 
-### 2.2 Create missing master components when needed
+Never guess node IDs from memory — re-read current file state in the active session.
+
+## Step 2 — Reuse before creating
+
+Repeated UI must be a reused unit, never redrawn per screen. The mechanism differs by tool; the requirement does not.
+
+### Figma
+
+Search existing components first — buttons, cards, badges/chips, tabs, navigation, headers, rows/list items, empty states, sheets. If a suitable component exists, instantiate it and configure through variants or component properties.
 
 Create a new master component only when:
+- The pattern appears in two or more places
+- The pattern is part of a flow contract (row, tab strip, hero, screen header, sheet, empty state)
+- Existing components are too generic or have the wrong anatomy for Dev Mode
 
-- The same UI pattern appears in two or more places.
-- The pattern is part of a flow contract, such as a row, tab strip, hero, screen header, bottom sheet, or empty state.
-- Existing library components are too generic or have the wrong anatomy for Dev Mode.
+Place new components inside a dedicated Section or Frame, never loose on canvas. Name deterministically — `Product / Pattern vN` — with explicit variant axes (`State=Active`, `Context=Meal Plan`, `Size=Small`).
 
-Put new components inside a dedicated Section or Frame, for example:
+### Pencil
 
-```text
-NiFit Meal Flow Components
-```
+Pencil has no published-component-instance model equivalent to Figma's. This is a real constraint with a real consequence: **hand-redrawing every screen is how drift happens.** Compensate explicitly:
 
-Do not place new components loose on the canvas.
+1. Build a **base set** first — one canonical instance of each repeated unit (row, chip, button, input, header, empty state) in a dedicated frame
+2. Build every screen by duplicating from the base set, never by drawing a new one
+3. Register token values as document variables and reference them; never inline a literal
+4. If the design must live on as a system of record, say so: recommend Figma and state why
 
-### 2.3 Name components and variants deterministically
+**Never** redraw a unit that already exists elsewhere in the file.
 
-Use product and flow names:
+## Step 3 — Structural conformance (the grammar level)
 
-```text
-NiFit / Meal Header v2
-NiFit / Meal Hero Section v2
-NiFit / Meal Tabs v2
-NiFit / Meal Food Row v2
-NiFit / Meal Guideline Row v2
-NiFit / Meal Supplement Filter Bar v2
-```
+These are the checks a reviewer performs by eye. Enforce them yourself first.
 
-Use explicit variant axes:
+| Axis | Rule |
+|---|---|
+| **Type** | Every text node's size is a step in the extracted ramp. No intermediate sizes. One family unless the system defines more. |
+| **Spacing** | Every gap and padding is a step in the extracted spacing scale. |
+| **Radius** | Every corner radius is an extracted value. Buttons/inputs and cards usually differ — do not collapse them to one value. |
+| **Colour** | Zero raw literals. Every fill and stroke references a token. |
+| **Shell** | The screen sits inside the product's **real** chrome — real navigation, real hierarchy, real menu labels from Step 1. Never invent an app frame. |
+| **Density** | Content occupies the frame the way shipped screens do. 45% dead space at the bottom does not match a product whose real screens fill the viewport. |
 
-```text
-Active=Day Plan
-Active=Food
-Active=Guidelines
-Active=Supps
-Context=Meal Plan
-Context=Supplements
-Kind=Coach Note
-Kind=Guideline
-Plan=Normal
-Plan=Busy IF
-```
+**On the shell specifically:** this is the single most visible failure. If the product has persistent side navigation, a screen drawn with a top tab bar reads as a different product no matter how correct the palette is.
 
----
+## Step 4 — Dev Mode friendly structure (Figma)
 
-## 3. Dev Mode Friendly Auto Layout
+Structure must describe the UI, not just look like it.
 
-### 3.1 Component root must be the real container
-
-The root component or variant should be the actual visual container whenever possible.
+**Component root must be the real container.**
 
 Correct:
-
 ```text
-NiFit / Meal Food Row v2 (COMPONENT, Auto Layout HORIZONTAL, card fill/stroke/radius)
+Product / Food Row v2 (COMPONENT, Auto Layout HORIZONTAL, card fill/stroke/radius)
   icon
   name
   count
 ```
 
 Incorrect:
-
 ```text
-NiFit / Meal Food Row v2 (COMPONENT, layout NONE)
+Product / Food Row v2 (COMPONENT, layout NONE)
   UI Kit Instance / Card - Food 0
   Food Icon 0
   Food Name 0
@@ -149,258 +139,154 @@ NiFit / Meal Food Row v2 (COMPONENT, layout NONE)
 
 The incorrect structure looks right visually but produces poor Dev Mode output and weak design-to-code mapping.
 
-### 3.2 No overlay labels for chips, cards, or rows
-
-Avoid a background layer plus separate sibling text overlays.
+**No overlay labels for chips, cards, or rows.** Never a background layer plus separate sibling text overlays.
 
 Correct chip anatomy:
-
 ```text
 Filter Bar (Auto Layout HORIZONTAL)
   Filter Chip 1 (Auto Layout HORIZONTAL)
     label
-  Filter Chip 2 (Auto Layout HORIZONTAL)
-    label
 ```
 
 Incorrect chip anatomy:
-
 ```text
 Filter Bar (layout NONE)
   Badge background 1
   Badge label 1
-  Badge background 2
-  Badge label 2
 ```
 
-Correct card anatomy:
+**Layout settings by pattern:**
+```text
+Row:     HORIZONTAL, fixed height; padding L/R; itemSpacing
+         icon: fixed · text: Fill container · meta/chevron: Hug contents
+Chip:    HORIZONTAL, hug width, centered; label WIDTH_AND_HEIGHT single-line
+Screen:  VERTICAL; header = component instance; body = Fill container
+```
+
+**Text rules:** use text styles, never raw font sizes. `Fill container` for text that should wrap, `Hug` for labels that must not.
+
+## Step 5 — Mutate incrementally, validate visually
+
+Use small write calls. Each write returns created/mutated node IDs, component names, variant names, and any component properties changed. Do not run parallel writes against the same document — reads can be parallel, writes must be sequential.
+
+After each component or screen:
+1. Capture a screenshot
+2. **Look at it** — spacing, alignment, clipping, text wrapping, hierarchy, contrast
+3. Fix regressions before moving on; cap at 3 iterations per screen, then record what you could not fix
+4. Measure with a layout snapshot rather than estimating by eye
+
+## Step 6 — Conformance audit before claiming done
+
+Run `conformance-audit.py` (this skill directory) against the design file and paste its output. It reports, with counts:
+
+- Font sizes off-ramp
+- Spacing values off-scale
+- Radius values off-scale
+- Raw colour literals not bound to a token
+- Font families beyond the system's
+- Reuse ratio: hand-drawn units vs instances
+
+**A claim of conformance without this output is not a claim, it is an assertion.** Any non-zero off-scale count must be fixed, or listed explicitly as a known deviation with a reason.
+
+## Baseline Failure (what happens without this skill)
+
+Observed in production, not hypothetical. An agent was asked to produce hi-fi screens for a POS module, given a hand-written brief containing 10 of the product's 23 colour tokens:
+
+| What it did | Why |
+|---|---|
+| Used `#10B981` for success | The brief had no success token; it substituted the CSS framework default. The product's real value was `#00B873`. |
+| Invented `BrandLight`, `SuccessBg`, `WarningBg` | It needed tint backgrounds; the brief had none. The product deliberately has no `*Bg` tokens. |
+| Drew a top tab bar as app chrome | Nothing told it the product has persistent navy side navigation. |
+| Built a 4-column table with headers | The product's equivalent screens are drag-reorderable row lists. |
+| Redrew every screen by hand | Pencil offers no instances, and nothing told it to build a base set first. |
+
+Verification that only counted hex strings passed it. The Product Designer scored it **3/10**.
+
+Running `conformance-audit.py` on the same file afterwards produced what the eye had already seen:
 
 ```text
-Kind=Coach Note (COMPONENT variant, Auto Layout VERTICAL, card fill/stroke/radius)
-  title
-  subtitle
+[FAIL] Type scale:            56 off-scale (18% of 311)   9px x31, 13px x15, 28px x4, 15px x3
+       largest ramp steps never used: [76, 24] -- headers hand-sized
+[FAIL] Spacing (gaps):       105 off-scale (44% of 241)   6 x46, 2 x18, 1 x14, 10 x13
+[FAIL] Spacing (padding):    171 off-scale (48% of 353)   10 x78, 6 x37, 20 x14
+[FAIL] Colour token binding: 666 unbound (85% of 779)     0 token-bound vs 779 raw literals
 ```
 
-Incorrect card anatomy:
+Nearly half of every spacing decision in the file was freehand pixel-pushing, and the top of the type ramp was never touched — page titles were sized by hand at 18px where the product mandates 24px.
 
-```text
-Kind=Coach Note
-  UI Kit Instance / Card - Coach Notes
-  Coach T
-  Coach B
-```
+### The neutrals are where it actually died
 
-### 3.3 Recommended layout settings by pattern
+The loud brand colours were **correct**. The quiet ones were Tailwind's defaults:
 
-Food row:
+| Role | Product's value | What the design used | Nodes |
+|---|---|---|---|
+| text | `#0B1220` | `#0F172A` — Tailwind `slate-900` | 102 |
+| muted | `#4D5870` | `#64748B` — Tailwind `slate-500` | 73 |
+| border | `#DDE5EF` | `#E2E8F0` — Tailwind `slate-200` | 73 |
+| canvas | `#F7F9FC` | `#F8FAFC` — Tailwind `slate-50` | 54 |
+| brand | `#4648D8` | `#4648D8` ✓ | 137 |
+| success | `#00B873` | `#00B873` ✓ | 63 |
 
-```text
-Root: HORIZONTAL, fixed 342 x 58
-paddingLeft/right: 20
-itemSpacing: 12
-children:
-  icon: fixed 28 x 28
-  name: Fill container, textAutoResize HEIGHT
-  count: Hug contents, right aligned
-```
+**302 nodes wore near-miss Tailwind neutrals; 245 wore correct brand colours.** Spot-checking the brand palette passes the design; the neutrals are what cover the surface area and set the feel.
 
-Guideline / coach note row:
+This is why the rejection said "looks like a generic dashboard" — it *was* wearing a generic dashboard's palette. Brand colours are distinctive, so agents remember to look them up. Neutrals are forgettable, so agents reach for the framework default that is 2–4 hex points away.
 
-```text
-Root variant: VERTICAL, fixed 342 x 72
-paddingLeft/right: 20
-paddingTop: 15
-paddingBottom: 14
-itemSpacing: 6
-children:
-  title: Fill container, Hug height
-  subtitle: Fill container, Hug/HEIGHT
-```
+**Audit the neutrals before the brand colours.** A near-miss neutral is invisible in isolation and unmistakable in aggregate.
 
-Supplement filter bar:
+Every failure above traces to one root: **the design system reached the designer as a hand-typed summary instead of a mechanical extraction.**
 
-```text
-Root: HORIZONTAL, fixed flow width
-itemSpacing: 8
-children:
-  Filter Chip: HORIZONTAL, fixed/hug width, centered
-    label: WIDTH_AND_HEIGHT when single-line, or HEIGHT when wrapping is intended
-```
+## Rationalization Table
 
-Schedule row:
+| Excuse | Reality |
+|---|---|
+| "The brief already lists the tokens" | Briefs are lossy copies. A brief listing 10 of 23 is worse than none — it looks authoritative. Verify against source. |
+| "I only need one more colour" | That one colour is exactly where drift enters. Missing token = BLOCKED. |
+| "It's the standard value for this framework" | The product overrode the framework. That override is the brand. |
+| "Colours are all correct, so it's consistent" | Colour is vocabulary. Reviewers judge grammar: type, spacing, radius, shell, reuse. |
+| "I checked the brand colours and they match" | Brand colours are the ones you remember to look up. Check the **neutrals** — text, muted, border, canvas. They cover more surface and drift to framework defaults 2-4 hex points away. |
+| "Pencil has no components, so I must redraw" | Then build a base set and duplicate from it. The tool limits the mechanism, not the requirement. |
+| "The shell isn't in scope for this screen" | The shell is what makes it recognisably this product. Always include the real one. |
+| "It looks fine" / "design is clean" | Unmeasurable. Run the audit, paste counts. |
+| "I'll match the design system as I go" | Extraction happens before the first node, not alongside it. |
+| "Detaching the instance was faster" | Detaching destroys the link that makes it a system. Fix the component instead. |
 
-```text
-Root: HORIZONTAL, fixed row height
-children:
-  icon/status
-  text stack: Fill container
-  meta / chevron: Hug contents
-```
+## Red Flags — STOP
 
-Screen section:
+- About to type a colour literal into a shape
+- About to pick a font size that "looks about right"
+- Copying a token table from a brief without checking it against source
+- Drawing a second copy of a unit that already exists
+- Inventing a token name because the one you need is missing
+- Detaching or deleting an instance to make something fit
+- Writing "PASS" for a requirement you did not execute
+- Reporting conformance without audit output
 
-```text
-Root screen: VERTICAL
-Header: component instance
-Hero: component instance
-Selector: component instance
-Tabs: component instance
-Content list: component instance or Auto Layout group of row instances
-Bottom nav: component instance
-```
+**All of these mean: stop, return to Step 1, extract from the truth source.**
 
-### 3.4 Text rules
+## Regression Checklist
 
-For dynamic text inside Auto Layout:
+Before handing off:
 
-- Append the text to its parent first.
-- Use `layoutSizingHorizontal = "FILL"` for long labels or body copy.
-- Use `layoutSizingHorizontal = "HUG"` only for short metadata or count labels.
-- Use `textAutoResize = "HEIGHT"` for wrapping text.
-- Use `textAutoResize = "WIDTH_AND_HEIGHT"` only when the label is intentionally single-line and the container is sized to fit it.
-- Load the current font before writing text or changing text sizing.
+- [ ] Truth source recorded, with paths/keys
+- [ ] Token Manifest extracted mechanically, with a count
+- [ ] Repeated UI is instances (Figma) or duplicated from a base set (Pencil)
+- [ ] Type, spacing, radius all on-scale — audit output pasted
+- [ ] Zero raw colour literals
+- [ ] Real product shell, real menu labels
+- [ ] Every screen screenshotted and actually looked at
+- [ ] No detached instances left behind
+- [ ] Known deviations listed with reasons
+- [ ] "What I could not verify" section is non-empty
 
----
+## Reporting
 
-## 4. Missing Component Creation Workflow
+Every item backed by output pasted from the session:
 
-### 4.1 Identify patterns across the flow
+1. Truth source chosen (Step 0) + exact paths/keys
+2. Token Manifest with a count, and confirmation it came from extraction, not from the brief
+3. Component reuse: what was instantiated vs newly created, and why each new one was justified
+4. Conformance audit output (Step 6), verbatim
+5. Deviations knowingly shipped, with reasons
+6. **What you could not verify and why** — an empty section here invalidates the report
 
-Common missing flow-level components:
-
-- Screen Header
-- Hero Section
-- Day Type Selector / segmented control
-- Tabs
-- Row item
-- List composition
-- Filter bar / chip group
-- Empty State
-- Detail metric row
-- Bottom Sheet
-
-Create masters from the most correct screen, then normalize structure before applying them elsewhere.
-
-### 4.2 Build component sets from variants
-
-When creating variants:
-
-1. Clone or rebuild each state.
-2. Convert each variant into a component.
-3. Combine as variants.
-4. Lay out variants in a readable grid.
-5. Resize the component set so variants and shadows are not clipped.
-6. Screenshot and inspect.
-
-For component sets, avoid binding the same text property to all variants when variants need different default copy. Text properties on component sets are useful only when all variants share the same semantic text slots.
-
-### 4.3 Add component properties carefully
-
-Use text component properties for reusable override fields:
-
-```text
-Food Row:
-  Name
-  Count
-
-Guideline Row:
-  Title
-  Subtitle
-
-Supplement Filter Bar:
-  Filter 1
-  Filter 2
-  Filter 3
-  Filter 4
-
-Empty State:
-  Title
-  Body
-  Action Label
-```
-
-When replacing manual UI with instances, preserve the old text by reading it first and setting instance properties immediately after insertion.
-
----
-
-## 5. Applying Components to a Flow
-
-### 5.1 Replace duplicated UI with instances
-
-After masters are valid:
-
-1. Inspect the target flow container.
-2. Find each screen frame.
-3. Replace repeated blocks with instances:
-   - Header
-   - Hero
-   - Tabs
-   - Selectors
-   - Lists and rows
-   - Empty states
-   - Bottom sheets
-4. Preserve each block's position and size.
-5. Preserve old text overrides through instance properties.
-6. Keep unrelated screen-specific content unchanged.
-
-### 5.2 Do not blindly detach or delete
-
-Never delete broad matches. Only replace the exact node group that corresponds to the new master component.
-
-When replacing a manual row group:
-
-1. Collect the background, icon, title, subtitle/count nodes.
-2. Insert the component instance at the first node's index.
-3. Set x/y to the old group position.
-4. Apply text properties.
-5. Remove the old nodes.
-
-### 5.3 Re-audit after replacement
-
-Return an audit such as:
-
-```text
-screenCount: 9
-totalFlowInstances: 48
-perScreen:
-  Meal / Food Tab Library: Header, Hero, Tabs, 5 Food Row instances
-  Meal / Guidelines Tab: Header, Hero, Tabs, 4 Guideline Row instances
-```
-
-Then screenshot the full flow node and any changed master components.
-
----
-
-## 6. Regression Checklist
-
-Before final response, verify:
-
-- No master component is built from a background instance plus overlay sibling text.
-- Text sits inside the chip/card/row it belongs to.
-- Dynamic text does not clip or wrap unexpectedly.
-- Component variants are not stacked at `(0,0)`.
-- Component set bounds include shadows and borders.
-- Root components have meaningful Auto Layout.
-- Instances in flow point back to the intended master components.
-- Variant text such as `Context=Supplements` is correct in the master, not only in a single instance.
-- Screens still match the visual language of the flow.
-
----
-
-## 7. Communication Pattern
-
-When working in Figma:
-
-1. Briefly state the component or flow section being audited.
-2. Report the structural issue in concrete layer terms.
-3. Apply the smallest safe fix.
-4. Screenshot and validate.
-5. Summarize the changed master component names and affected screens.
-
-Example:
-
-```text
-The Supplement Filter Bar was using badge backgrounds plus overlay text siblings.
-I rebuilt the master as an Auto Layout bar containing chip frames, each with its own label child.
-The flow instance now updates from the master and the labels no longer wrap or drift.
-```
+Do not write self-assessing summaries ("clean", "consistent", "PASS"). State what you ran and what it returned.
