@@ -1,0 +1,36 @@
+{
+  "_doc": [
+    "Flow tự-kiểm engine. Không cần credential, không gọi API, không side effect —",
+    "chỉ gõ vào form login rồi bấm nút hiện/ẩn mật khẩu.",
+    "",
+    "Vì sao chọn đúng luồng này làm bài tự kiểm: nó chứng minh được cả ba thứ mà `goto`",
+    "đơn thuần không bao giờ chứng minh được — gõ thật vào input do React quản lý (onChange",
+    "phải chạy), bấm thật một nút, và trạng thái DOM đổi thật do cú bấm đó",
+    "(input[type=password] biến thành input[type=text], nên trong form có 2 input type=text).",
+    "Nếu engine gian lận bằng inject state thì bước cuối sẽ không đạt.",
+    "",
+    "Dùng làm bài kiểm tra khi sửa flow.mjs: node .e2e/flow.mjs --flow login-form-interaction"
+  ],
+
+  "name": "login-form-interaction",
+  "target": "dev",
+  "viewport": "desktop",
+  "login": "none",
+  "trace": true,
+  "video": true,
+
+  "steps": [
+    { "goto": "/login" },
+    { "waitFor": { "css": "form input[type=\"password\"]" } },
+    { "shot": "01-form-trong" },
+
+    { "fill": { "css": "form input", "nth": 0, "value": "khong-phai-tai-khoan-that@example.com" } },
+    { "fill": { "css": "form input[type=\"password\"]", "value": "chi-de-kiem-tra-go-chu" } },
+    { "expectVisible": { "css": "form input[type=\"password\"]" } },
+    { "shot": "02-da-go-chu" },
+
+    { "click": { "css": "form input[type=\"password\"] ~ button" } },
+    { "waitFor": { "css": "form input[type=\"text\"]", "nth": 1 } },
+    { "shot": "03-mat-khau-hien-ra" }
+  ]
+}

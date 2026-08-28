@@ -1,0 +1,57 @@
+{
+  "_doc": [
+    "Mẫu flow. Copy thành `<tên>.json` trong .e2e/flows/ rồi chạy:",
+    "  node .e2e/flow.mjs --flow <tên>",
+    "",
+    "BA RÀNG BUỘC ENGINE CƯỠNG CHẾ (không phải lời khuyên):",
+    "  1. Chỉ có verb tương tác thật (click/dblclick/hover/check/uncheck/fill/select/press/scroll).",
+    "     Không có verb nào set state hay gọi hàm render nội bộ.",
+    "  2. Mỗi `shot` phải có ≥1 bước chứng minh (waitFor/expectText/expectVisible/expectUrl/",
+    "     expectUrlNot) kể từ lần chụp trước. Thiếu ⇒ FLOW_FAILED và KHÔNG ra ảnh.",
+    "  3. Flow phải có ≥1 bước tương tác. Chỉ goto+shot ⇒ FLOW_FAILED (đó là smoke, dùng smoke.mjs).",
+    "  `settle` KHÔNG tính là chứng minh — nó chỉ là chờ trơn, tối đa 3000ms.",
+    "",
+    "SELECTOR — ưu tiên theo thứ tự này:",
+    "  { \"role\": \"button\", \"name\": \"Save\" }   ← tốt nhất (accessibility tree, không vỡ khi đổi class)",
+    "  { \"text\": \"Chọn ngày\" }                 ← tốt, nhưng vỡ khi đổi ngôn ngữ",
+    "  { \"label\": \"Email\" }  { \"placeholder\": \"...\" }  { \"testId\": \"...\" }",
+    "  { \"css\": \"form input\", \"nth\": 0 }       ← CỬA THOÁT, bị đếm vào escapeHatchSelectors",
+    "Thêm \"nth\": N để chọn phần tử thứ N; mặc định là .first().",
+    "",
+    "SCROLL — 3 dạng, dùng khi trang cần lướt để hiện/kích hoạt nội dung (lazy-load, sticky header,",
+    "infinite scroll) trước khi click/chụp — giống người thật lướt rồi mới bấm, không phải state ảo:",
+    "  { \"scroll\": \"down\" }                         ← lướt xuống ~600px (mouse wheel thật)",
+    "  { \"scroll\": { \"y\": 1200 } }                   ← lướt xuống theo pixel tuỳ chỉnh (âm = lên)",
+    "  { \"scroll\": { \"to\": { \"role\": \"button\", \"name\": \"Xem thêm\" } } }  ← fallback ổn định locator",
+    "Ưu tiên mouse.wheel theo quãng có kiểm soát để mô phỏng user. Sau lần scroll cuối PHẢI có",
+    "expectVisible/waitFor xác nhận target đã hiện trước click/chụp; nếu thiếu engine sẽ FLOW_FAILED.",
+    "",
+    "SECRET: đừng viết thẳng. Dùng \"${E2E_OWNER_EMAIL}\" — engine nội suy từ env/.env.local và",
+    "không bao giờ đưa giá trị vào output (bước đó được đánh dấu valueMasked)."
+  ],
+
+  "name": "ten-flow",
+  "target": "dev",
+  "viewport": "desktop",
+  "login": "none",
+  "role": "owner",
+  "trace": true,
+  "video": true,
+  "timeout": 30000,
+
+  "steps": [
+    { "goto": "/duong-dan" },
+    { "waitFor": { "role": "heading", "name": "Tiêu đề trang" } },
+    { "shot": "01-trang-thai-ban-dau" },
+
+    { "click": { "role": "button", "name": "Danh mục cần chọn" } },
+    { "expectText": "Danh mục đã chọn" },
+    { "shot": "02-category-active" },
+
+    { "scroll": { "y": 600 } },
+    { "expectVisible": { "role": "button", "name": "Dịch vụ cần chọn" } },
+    { "click": { "role": "button", "name": "Dịch vụ cần chọn" } },
+    { "expectText": "Customize" },
+    { "shot": "03-service-customize" }
+  ]
+}

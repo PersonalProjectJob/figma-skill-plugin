@@ -1,0 +1,23 @@
+{
+  "_doc": [
+    "Cấu hình form đăng nhập cho `--login ui` của flow.mjs. Đây là file DUY NHẤT trong kit",
+    "phụ thuộc vào form login của MỘT project cụ thể — copy skill sang project khác thì sửa lại",
+    "đúng file này (selector theo form login thật của project đó), đừng sửa flow.mjs.",
+    "",
+    "Ví dụ dưới đây là selector CSS thay vì role/text (dù flow.mjs ưu tiên role/text) vì form login gốc",
+    "của project được viết ra để lấy cấu hình này có 2 đặc điểm: <label> không gắn htmlFor vào input nên",
+    "getByLabel không bắt được; label/placeholder sinh từ i18n nên selector theo text vỡ khi đổi ngôn",
+    "ngữ. Cấu trúc form (2 input + 1 submit) thì ổn định hơn. Project của bạn có thể khác — đọc form login",
+    "thật của bạn rồi chỉnh lại selector cho khớp.",
+    "",
+    "Ví dụ: email input của project gốc là type=text (không phải type=email) — kiểm lại đúng type thật",
+    "trước khi đổi selector, đừng giả định input[type=email] luôn đúng.",
+    "Bằng chứng đăng nhập thành công = rời khỏi route login. Không hardcode route đích cụ thể (app có",
+    "thể điều hướng tới nhiều route khác nhau tuỳ loại tài khoản) — chỉ cần khác route login là đủ."
+  ],
+  "route": "/login",
+  "emailSelector": { "css": "form input", "nth": 0 },
+  "passwordSelector": { "css": "form input[type=\"password\"]" },
+  "submitSelector": { "css": "form button[type=\"submit\"]" },
+  "successTimeout": 20000
+}
