@@ -86,7 +86,7 @@ node scripts/check-agents.mjs agents      # phải OK trước khi dùng
 
 Sau đó gọi `/dispatch <US-id | issue-url | mô tả task>`. Skill sẽ: phân loại độ phức tạp → quyết định có cần spec không → tạo branch/worktree → chọn executor → giao việc → verify → cập nhật tracking → dừng trước commit/PR.
 
-**Điều chỉnh cho bối cảnh của bạn**: package này giả định vault Obsidian làm nơi lưu spec, GitHub Projects làm board, `pnpm build` làm cổng verify. Ba chỗ đó thay được — phần nguyên tắc thì không phụ thuộc chúng.
+**Điều chỉnh cho bối cảnh của bạn**: package này KHÔNG đòi vault. Mặc định chạy được trên repo trần — tracking bằng issue + PR. Vault Obsidian (hoặc `docs/` trong repo) là cấu hình thêm nếu bạn có. GitHub Projects làm board và `pnpm build` làm cổng verify cũng thay được như cũ — phần nguyên tắc thì không phụ thuộc chúng.
 
 ## Giới hạn — đọc trước khi dùng
 

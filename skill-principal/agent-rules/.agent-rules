@@ -6,16 +6,18 @@
 
 ## Path variables (đọc trước khi dùng bất kỳ đường dẫn nào bên dưới)
 
-Các file rule dùng biến thay cho đường dẫn tuyệt đối, vì vault Obsidian và thư mục skill nằm ngoài repo và khác nhau trên từng máy. Giá trị thật nằm trong **`.agent-rules.local`** ở repo root — file này KHÔNG được commit (mỗi người tự cấu hình; xem `.agent-rules.local.example`).
+Các file rule dùng biến thay cho đường dẫn tuyệt đối, vì các thư mục ngoài repo (thư mục skill, và vault Obsidian nếu repo này có dùng) khác nhau trên từng máy. Giá trị thật nằm trong **`.agent-rules.local`** ở repo root — file này KHÔNG được commit (mỗi người tự cấu hình; xem `.agent-rules.local.example`).
 
 | Biến | Nghĩa |
 |---|---|
-| `${VAULT_ROOT}` | Thư mục gốc vault Obsidian Acme (chứa `Sprints/`, `Reports/`, `Templates/`) |
-| `${OBSIDIAN_ROOT}` | Thư mục gốc vault Obsidian (cha của `${VAULT_ROOT}`) — nơi chứa doc cross-project (vd `Plugin & Skill/`) |
+| `${VAULT_ROOT}` | **TUỲ CHỌN.** Thư mục gốc vault Obsidian Acme (chứa `Sprints/`, `Reports/`, `Templates/`) — chỉ khai báo nếu repo này dùng vault |
+| `${OBSIDIAN_ROOT}` | **TUỲ CHỌN.** Thư mục gốc vault Obsidian (cha của `${VAULT_ROOT}`) — nơi chứa doc cross-project (vd `Plugin & Skill/`) |
 | `${REPO_ROOT}` | Thư mục checkout chính của repo này (bản không phải worktree) |
 | `${SKILLS_DIR}` | Thư mục skill của agent (chứa `create-pr-issues/`, `dispatch/`, ...) |
 
-Thiếu `.agent-rules.local` → DỪNG và hỏi user giá trị, đừng đoán đường dẫn.
+Thiếu `.agent-rules.local` → repo này **không có path ngoài repo**; chạy tiếp ở profile BARE (spec sống
+trong `docs/` của repo hoặc issue body). Chỉ DỪNG hỏi user khi một rule đang chạy **đích danh** cần một
+path ngoài repo cụ thể. Không bao giờ đoán đường dẫn.
 
 ## Routing Table
 
@@ -32,7 +34,7 @@ Thiếu `.agent-rules.local` → DỪNG và hỏi user giá trị, đừng đoá
 
 ## Always-On Invariants (áp dụng mọi task, không cần đọc thêm)
 
-- **Obsidian vault root**: `${VAULT_ROOT}\` — Sprints, User Stories, Reports, Templates đều ở đây (KHÔNG dùng thư mục `user-story/` trong repo).
+- **Obsidian vault root** (nếu repo này có cấu hình vault): `${VAULT_ROOT}\` — Sprints, User Stories, Reports, Templates đều ở đây (KHÔNG dùng thư mục `user-story/` trong repo). Không có vault → spec sống trong `docs/` của repo hoặc issue body.
 - **Active sprint**: file trong `Sprints/` có frontmatter `status: in-progress` — chỉ được có ĐÚNG MỘT sprint in-progress tại mọi thời điểm.
 - **GitHub assignee theo Item Type**: **Backlog & Task** (parent / QA-QC verify) → assign **cả `qa-owner` + `dev-owner`**; **Dev Task** & các type còn lại → chỉ `dev-owner`. `legacy-account` KHÔNG phải collaborator — GitHub âm thầm bỏ qua, phải verify sau khi assign.
 - **Micro task (< 2h, không đổi business logic)**: KHÔNG tạo US — spec nằm trong GitHub issue body, tracking bằng 1 dòng trong sprint file (Task Tier Gate, xem `task-sizing.md`).
@@ -47,8 +49,8 @@ Thiếu `.agent-rules.local` → DỪNG và hỏi user giá trị, đừng đoá
   |---|---|
   | Quy ước US / sprint / evidence / task sizing | `.agent-rules.d/*.md` (+ index `.agent-rules` nếu là invariant) |
   | Nội dung/giọng văn issue & PR | `.agent-rules.d/github-issue.md` |
-  | Quy trình của một skill | `SKILL.md` của skill đó (+ design doc mirror trong vault) |
-  | Cấu trúc/định dạng file trong vault | template tương ứng trong `${VAULT_ROOT}\Templates\` |
+  | Quy trình của một skill | `SKILL.md` của skill đó (+ design doc mirror trong vault, nếu có vault) |
+  | Cấu trúc/định dạng file trong vault | template tương ứng trong `${VAULT_ROOT}\Templates\`, nếu có vault |
   | Chuẩn code / kiến trúc repo | `CLAUDE.md` (hoặc `.agent-rules.d/` nếu là quy ước quy trình) |
   Chỉ được để **riêng trong memory** những thứ thật sự chỉ mình agent đó cần: sở thích cá nhân của user, lịch sử một phiên, state tạm (vd "next free US id"). Sau khi sửa file dùng chung ở repo này, đồng bộ luôn bản backup trong `<skill-repo>/agent-rules-webapp-fe/` (2 file/folder này gitignored ở repo dự án).
 

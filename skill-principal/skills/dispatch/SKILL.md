@@ -1,13 +1,13 @@
 ---
 name: dispatch
-description: Use when the user runs /dispatch with a US id (US-085), a US markdown file path, a GitHub issue URL, or a free-text task — routes work to Sonnet 5 self-code / Codex / Gemini (separate harness, isolated local worktree) for small tasks / direct Codex / Claude-plan-then-Codex, runs a US Gate (creates the Obsidian US before dispatching when the Task Tier Gate says Full US; micro tasks get a one-line entry in the active sprint file instead), creates a work branch, picks the executor + model, executes, verifies with build+tests, and syncs the Obsidian US file. Gemini executor: Claude creates a local worktree (with `.env.local` + `pnpm install` ready) and a self-contained prompt file saved under `gemini-task-prompts/<slug>.md` in the vault; user pastes it into their own Gemini/Antigravity session. Gemini only codes within scope and writes `_DONE.md` — it never commits/pushes/merges/writes to the vault. Claude is the sole verifier + committer + merger. /dispatch never shells out to `gemini exec` itself. Never uses the premium main-loop model (currently Opus 5) to write code. Triggers: "/dispatch", "dispatch US-", "dispatch issue".
+description: Use when the user runs /dispatch with a US id (US-085), a US markdown file path, a GitHub issue URL, or a free-text task — routes work to Sonnet 5 self-code / Codex / Gemini (separate harness, isolated local worktree) for small tasks / direct Codex / Claude-plan-then-Codex, runs a US Gate (creates the spec — in a vault if the repo has one configured, otherwise in-repo docs or the issue body — before dispatching when the Task Tier Gate says Full US; micro tasks get a one-line entry in the active sprint file instead, or are skipped entirely on a bare repo), creates a work branch, picks the executor + model, executes, verifies with build+tests, and syncs whatever spec was used for tracking. Gemini executor: Claude creates a local worktree (with `.env.local` + `pnpm install` ready) and a self-contained prompt file saved under `gemini-task-prompts/<slug>.md` (in the vault if configured, otherwise in-repo); user pastes it into their own Gemini/Antigravity session. Gemini only codes within scope and writes `_DONE.md` — it never commits/pushes/merges/writes to the spec store. Claude is the sole verifier + committer + merger. /dispatch never shells out to `gemini exec` itself. Never uses the premium main-loop model (currently Opus 5) to write code. Triggers: "/dispatch", "dispatch US-", "dispatch issue".
 ---
 
 # /dispatch — Điều phối Claude Plan / Codex Code
 
-Workflow: nhận US/issue/task → phân loại độ phức tạp → **US Gate** (Bước 2c — tạo US trong vault nếu task đạt tier Full US) → tạo branch → thực thi (Sonnet 5, Codex, hoặc Gemini qua worktree cách ly — task nhỏ không dùng model main-loop) → verify → sync US → báo cáo. **DỪNG trước commit/PR code — không bao giờ tự commit** (executor Gemini là ngoại lệ: Claude commit + merge CỤC BỘ sau khi tự verify `_DONE.md`, xem Bước 6 + Quy tắc cứng — vẫn không tự push/PR).
+Workflow: nhận US/issue/task → phân loại độ phức tạp → **US Gate** (Bước 2c — tạo spec ở nơi repo đó lưu spec: vault, `docs/`, hoặc issue body — nếu task đạt tier Full US) → tạo branch → thực thi (Sonnet 5, Codex, hoặc Gemini qua worktree cách ly — task nhỏ không dùng model main-loop) → verify → sync US → báo cáo. **DỪNG trước commit/PR code — không bao giờ tự commit** (executor Gemini là ngoại lệ: Claude commit + merge CỤC BỘ sau khi tự verify `_DONE.md`, xem Bước 6 + Quy tắc cứng — vẫn không tự push/PR).
 
-Quy ước chi tiết cho executor Gemini: `${VAULT_ROOT}\docs\<epic>\<epic>_gemini-delegation-convention.md` — quy ước tái dùng cho mọi task giao Gemini, không riêng một epic.
+Quy ước chi tiết cho executor Gemini: `${VAULT_ROOT}\docs\<epic>\<epic>_gemini-delegation-convention.md` (chỉ áp dụng khi profile là VAULT — xem Bước 0.5). Profile khác thì quy ước này nằm trong `docs/` của repo hoặc trong chính prompt giao Gemini. Quy ước tái dùng cho mọi task giao Gemini, không riêng một epic.
 
 Thiết kế gốc: `${OBSIDIAN_ROOT}\Plugin & Skill\Dispatch-Workflow-Design.md`.
 
@@ -17,21 +17,21 @@ Thiết kế gốc: `${OBSIDIAN_ROOT}\Plugin & Skill\Dispatch-Workflow-Design.md
 2. Đọc `CLAUDE.md` của repo (lệnh build/test, data boundary, verification guide) nếu chưa có trong context.
 3. Nếu repo có `.agent-rules` (đọc ở **main repo root**, không phải worktree — `${REPO_ROOT}\.agent-rules`): đọc routing table, đọc rule file khớp với task.
    - **Vì sao main repo root:** `.agent-rules` + `.agent-rules.d/` nằm trong `.gitignore` nên **không tồn tại trong worktree** do `git worktree add` tạo ra. Đây cũng là lý do Bước 3.5 bắt buộc copy hai thứ này sang worktree Gemini, và prompt Codex/Gemini phải nói rõ chỗ đọc — nếu không, executor chạy trong worktree sẽ mù hoàn toàn về rule của repo.
-4. **Phân giải biến đường dẫn.** Skill này KHÔNG hardcode đường dẫn máy — mọi path dùng biến, đọc giá trị thật từ `${REPO_ROOT}\.agent-rules.local` (mẫu: `.agent-rules.local.example`). Thiếu file đó mà task cần path ngoài repo → DỪNG, hỏi user; không được đoán.
+4. **Phân giải biến đường dẫn.** Skill này KHÔNG hardcode đường dẫn máy — mọi path dùng biến, đọc giá trị thật từ `${REPO_ROOT}\.agent-rules.local` (mẫu: `.agent-rules.local.example`). Thiếu file đó → **không có path ngoài repo, chạy tiếp ở profile BARE** (xem Bước 0.5). Chỉ DỪNG hỏi user khi task **đích danh** yêu cầu ghi vào một path ngoài repo cụ thể (vd trỏ thẳng vào một US/sprint). Vẫn không được đoán path.
 
    | Biến | Nghĩa | Mặc định nếu không khai báo |
    |---|---|---|
    | `${REPO_ROOT}` | Checkout chính của repo (không phải worktree) | `git rev-parse --show-toplevel` khi đang ở main checkout |
-   | `${VAULT_ROOT}` | Thư mục project trong vault Obsidian (chứa `Sprints/`, `Templates/`, `docs/`) | — (bắt buộc khai báo nếu task chạm US/sprint) |
-   | `${OBSIDIAN_ROOT}` | Thư mục gốc vault Obsidian (cha của `${VAULT_ROOT}`) — nơi chứa doc cross-project | thư mục cha của `${VAULT_ROOT}` |
+   | `${VAULT_ROOT}` | Thư mục project trong vault Obsidian (chứa `Sprints/`, `Templates/`, `docs/`) | **TUỲ CHỌN** — không khai báo thì skill chạy ở profile BARE (không có vault), xem Bước 0.5 |
+   | `${OBSIDIAN_ROOT}` | Thư mục gốc vault Obsidian (cha của `${VAULT_ROOT}`) — nơi chứa doc cross-project | **TUỲ CHỌN**, mặc định thư mục cha của `${VAULT_ROOT}` khi có vault; không dùng ở profile BARE |
    | `${SKILLS_DIR}` | Thư mục skill của agent | `~/.claude/skills` |
    | `${CODEX_HOME}` | Thư mục cấu hình Codex CLI | `~/.codex` |
    | `${WORKTREE_PARENT}` | Nơi đặt worktree cách ly | thư mục cha của `${REPO_ROOT}` |
    | `${CANONICAL}` | Repo chứa package này (rule + agents + scripts) | thư mục cha của `skills/` |
 
-## Bước 0.5 — REPO PROFILE (skill này không chỉ chạy trên repo có vault)
+## Bước 0.5 — REPO PROFILE (spec sống ở đâu?)
 
-Toàn bộ Bước 2c (spec gate) được viết cho một repo có `.agent-rules` + thư mục tài liệu ngoài repo. **Repo khác có thể không có gì trong hai thứ đó — và đó là trạng thái HỢP LỆ, không phải lỗi cấu hình.** Chạy đúng 2 lệnh rồi tra bảng, đừng suy đoán:
+Mặc định, skill này giả định repo **KHÔNG có** thư mục tài liệu ngoài repo (vault) — đây là trạng thái HỢP LỆ, không phải lỗi cấu hình. Vault Obsidian (hay bất kỳ thư mục tài liệu ngoài repo nào) là **cấu hình thêm, opt-in**: chỉ tồn tại khi `.agent-rules` + `.agent-rules.local` khai báo `${VAULT_ROOT}`. Chạy đúng 2 lệnh rồi tra bảng, đừng suy đoán:
 
 ```bash
 ls "${REPO_ROOT}"/.agent-rules "${REPO_ROOT}"/.agent-rules.local "${REPO_ROOT}"/CLAUDE.md 2>/dev/null
@@ -40,13 +40,13 @@ ls "${REPO_ROOT}"/docs "${REPO_ROOT}"/Docs 2>/dev/null
 
 | Profile | Dấu hiệu | Spec gate (Bước 2c) chạy thế nào |
 |---|---|---|
-| **VAULT** | có `.agent-rules` + `.agent-rules.local` khai `${VAULT_ROOT}` | Nguyên văn Bước 2c — spec sống trong thư mục tài liệu ngoài repo |
+| **BARE** | không có cả hai | Đây là mặc định. Bỏ hẳn spec gate. Tracking DUY NHẤT là issue body + PR description. **Báo user rõ điều này ở bước báo cáo** thay vì im lặng |
 | **IN-REPO DOCS** | không có `.agent-rules`, nhưng `docs/` có bộ doc theo vai | Thay vault bằng chính `docs/` đó. Không có sprint file ⇒ bỏ bước "kiểm tra sprint active", KHÔNG coi là fail |
-| **BARE** | không có cả hai | Bỏ hẳn spec gate. Tracking DUY NHẤT là issue body + PR description. **Báo user rõ điều này ở bước báo cáo** thay vì im lặng |
+| **VAULT** | có `.agent-rules` + `.agent-rules.local` khai `${VAULT_ROOT}` (opt-in, không phải mặc định) | Nguyên văn Bước 2c — spec sống trong thư mục tài liệu ngoài repo |
 
-Chỉ **DỪNG hỏi user** khi profile là VAULT *nhưng* `.agent-rules.local` thiếu/không đọc được — lúc đó path thật sự không đoán được.
+Chỉ **DỪNG hỏi user** khi task được giao **đích danh trỏ vào một US/sprint cụ thể** mà không phân giải được path (vd "tiếp tục US-042" nhưng không có `.agent-rules.local` để biết nó nằm ở đâu). Task thường (free-text, issue, không chỉ định US/sprint cụ thể) thì **hạ cấp xuống BARE và báo rõ trong báo cáo**, không DỪNG.
 
-⚠️ **Thiếu file khai báo KHÔNG chứng minh là không có thư mục tài liệu.** Trước khi chốt IN-REPO DOCS hoặc BARE, tìm một lượt; chốt sai thì gate bỏ qua một spec đang `in-progress` và tạo doc trùng:
+⚠️ **Thiếu file khai báo KHÔNG chứng minh là không có thư mục tài liệu.** Nếu repo này có dùng vault thì tìm một lượt trước khi chốt BARE; chốt sai thì gate bỏ qua một spec đang `in-progress` và tạo doc trùng:
 
 ```bash
 ls -d <nơi-hay-đặt-vault>/*/ 2>/dev/null
@@ -248,9 +248,9 @@ Gate này **agent tự quyết, KHÔNG hỏi user** (nguyên văn `task-sizing.m
 | `MICRO` | KHÔNG tạo file US, KHÔNG tạo folder trong `Sprints/<week>/`. Tracking = 1 dòng trong sprint file, ghi ở Bước 3.8. |
 | `US_NEEDED` | Tạo US ngay tại bước này (mục 4) **và ép lên Route C** — cổng duyệt plan của Route C trở thành cổng duyệt US draft. Nhất quán với "lưỡng lự → chọn nhánh LỚN hơn" và với yêu cầu "story được duyệt trước khi code" của `obsidian-us-workflow.md` + CLAUDE.md. Đã là Route C thì không đổi gì. |
 
-**4. `US_NEEDED` — tạo US theo thứ tự reserve-then-fill** (làm TRƯỚC Bước 3 để fail sớm, đừng fail sau khi đã dựng worktree + `pnpm install`):
+**4. `US_NEEDED` — tạo US theo thứ tự reserve-then-fill** (làm TRƯỚC Bước 3 để fail sớm, đừng fail sau khi đã dựng worktree + `pnpm install`). **Toàn bộ mục 4 chỉ áp dụng cho profile VAULT** (Bước 0.5) — profile IN-REPO DOCS/BARE thì US_NEEDED không tạo US trong vault, xem nhánh tương ứng ở bảng Bước 0.5:
 
-a. **Kiểm tra sprint active tồn tại**: file trong `${VAULT_ROOT}/Sprints/*.md` có frontmatter `status: in-progress`. Không có → DỪNG, hỏi user (đúng một sprint được `in-progress` tại mọi thời điểm).
+a. **Kiểm tra sprint active tồn tại**: file trong `${VAULT_ROOT}/Sprints/*.md` có frontmatter `status: in-progress`. Không có → **hạ cấp: bỏ spec gate, tracking bằng issue body + PR description, báo rõ cho user ở bước báo cáo** (giống hành vi BARE). Ca có vault thật sự: đúng một sprint được `in-progress` tại mọi thời điểm.
 
 b. **Cấp id** = max hiện có + 1, quét toàn vault (id duy nhất toàn vault, không chỉ trong tuần):
 ```bash
@@ -779,7 +779,7 @@ Nếu project không có board riêng dạng agent-orchestration (task ngoài ep
 - **Bịa là đầu ra hợp lý của protocol, không phải tính cách của một model cụ thể.** Cùng một `_DONE.md`, khi prompt chỉ đòi **phán quyết bằng văn xuôi** ("build xanh", "PASS") thì executor bịa; khi prompt đòi **con số + baseline + câu "bên điều phối re-run tất cả"** thì nó khai đúng. Kiểm chứng trong CÙNG một task, cùng model: lượt 1 (đòi văn xuôi) bịa 6 nhóm field; lượt 2 (đòi con số, có baseline) khai đúng từng số, chạy lại khớp hết. Executor khác cũng bịa y hệt khi được hỏi kiểu đó (báo "no files outside the task surface changed" trong khi đã tạo một script throwaway ở repo root **có hardcode credential**). Vì vậy: **đừng sửa bằng cách dặn executor "đừng bịa" — sửa bằng cách làm cho câu khai có thể sai được (falsifiable).** Mọi ô trong `_DONE.md` phải là output máy dán vào mà bên điều phối re-run được.
 - **Verify EVIDENCE, không chỉ code** — hash ảnh (trùng byte = bịa), AC hành vi mà evidence là "static code review" thì là BLOCKED chứ không PASS, `git status` trước khi tin ảnh (ảnh trên build đã patch = vô giá trị), câu tổng quát tự khen phải tự kiểm bằng `diff`/`grep`. Chi tiết ở Bước 6 §"Verify BẰNG CHỨNG". Lý do cần ghi thành rule: Bước 6 trước đây chỉ kiểm code, nên báo cáo bịa *bằng chứng* đi qua sạch.
 - **State công việc phải nằm trong `.agent-tasks/`, không nằm trong hội thoại (Bước 0.6).** Đầu mỗi lượt: liệt kê task TRƯỚC khi tạo mới — có task dở khớp yêu cầu thì tiếp tục nó. Cuối mỗi lượt mà việc chưa xong: **bắt buộc handoff**, nếu không task treo với owner cũ và agent khác bị chặn claim. Đây là SPOF thật: bên điều phối vừa planner vừa verifier vừa committer, hết quota giữa dòng là không ai nhặt lên tiếp được.
-- **Chốt REPO PROFILE ở Bước 0.5 trước mọi thứ khác.** Skill này viết cho repo có rule file + thư mục tài liệu ngoài repo; repo khác có thể không có gì trong hai thứ đó, và **đó là trạng thái hợp lệ**. Chỉ DỪNG hỏi user khi profile là VAULT mà file khai báo path không đọc được. Trước khi chốt BARE phải `ls` tìm một lượt — thiếu file khai báo không chứng minh là không có thư mục tài liệu.
+- **Chốt REPO PROFILE ở Bước 0.5 trước mọi thứ khác.** Mặc định là **BARE** (không có vault) — vault là cấu hình thêm, opt-in, chỉ có khi `.agent-rules.local` khai báo `${VAULT_ROOT}`. Chỉ DỪNG hỏi user khi task **đích danh** trỏ vào một US/sprint cụ thể mà không phân giải được path; task thường thì hạ cấp xuống BARE và báo trong báo cáo, không DỪNG. Trước khi chốt BARE phải `ls` tìm một lượt — thiếu file khai báo không chứng minh là không có thư mục tài liệu.
 - **Sàn kiểm tối thiểu: MỌI diff của MỌI executor qua `role-verifier`.** Miễn trừ duy nhất là task gọn (≤2 file, không shared layer, không ảnh/bảng PASS, không GATE 0b, **không phải stream của Bước 2e**), và chỉ có hiệu lực sau **phản tỉnh 4 câu chạy trên DIFF THẬT** — không phải trên ước lượng lúc chấm route. Câu 1–2 dùng chung ngưỡng với cổng escalation micro→spec: task phồng thì cả hai cổng cùng bật.
 - **Tách stream song song có bên chia việc (Bước 2e), không còn là chuyện tự phát.** Trigger: Route B/C **và** ≥4 file **và** ≥2 cụm rời tự verify được — Route A không bao giờ tách. Trần 3 stream. Người chia là `role-planner`. **Điều kiện CHẶN**: bảng "tài nguyên chia sẻ ở runtime" phải chốt trước, mỗi thứ có đúng 1 file sở hữu — không chốt được thì chạy đơn stream. Merge **tuần tự**, kiểm chéo shape, typecheck lại trên nhánh tích hợp. `git merge` sạch KHÔNG phải bằng chứng hai stream tương thích.
 - **Model KHÔNG bao giờ do agent tự chốt im lặng — luôn hỏi user, kèm phân tích có SỐ.** Gộp thành MỘT câu hỏi dạng cặp `executor · model · effort` (model phụ thuộc executor, mà một lượt hỏi không rẽ nhánh được — tách ra là đẻ thêm lượt). `description` mỗi option là số + nguồn từ hồ sơ, **không phải tính từ**. Luôn kèm ≥1 option thay thế để thấy trade-off.
