@@ -204,6 +204,41 @@ node "<workspace>/.e2e/publish.mjs" --evidence-dir "<folder chứa .png/.md vừ
 - Không cài package mới: zip bằng `Compress-Archive` (Windows) hoặc `zip` (posix) — công cụ hệ thống có
   sẵn, không đụng `package.json`/lockfile của project.
 
+### Bước 3d-bis — Ảnh render INLINE trong issue/PR body: `gh release upload` PNG trực tiếp
+
+`publish.mjs` ở trên **zip** cả folder evidence lại — đúng cho mục đích bundle tải về, nhưng URL `.zip` đó
+**KHÔNG** render thành `<img>` khi nhúng bằng markdown `![]()` (GitHub chỉ auto-render ảnh khi asset TỰ nó
+là file ảnh). Khi mục tiêu là nhúng đúng 1 ảnh **inline vào body issue hoặc PR** (thay cho upload qua
+browser), dùng trực tiếp `gh release upload` với file `.png` gốc, KHÔNG qua `publish.mjs`:
+
+```bash
+# 1) Tạo/dùng lại 1 GitHub Release làm nơi chứa asset (tag tuỳ ý)
+gh release create <tag> --repo <owner>/<repo> --title "<tag>" --notes "Evidence assets" \
+  || true   # bỏ qua lỗi nếu release đã tồn tại
+
+# 2) Upload thẳng file .png (không zip) — --clobber để chạy lại không lỗi "asset đã tồn tại"
+gh release upload <tag> "<path/to/screenshot.png>" --repo <owner>/<repo> --clobber
+
+# 3) Lấy URL asset rồi nhúng bằng markdown image syntax vào body issue/PR
+gh release view <tag> --repo <owner>/<repo> --json assets -q '.assets[].url'
+# → https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.png
+# Nhúng: ![mô tả ngắn](https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.png)
+```
+
+**Đã verify thật:** post 1 comment test chứa `![...](...png)` trỏ vào release asset, rồi đọc lại qua
+`gh api .../issues/comments/<id> -H "Accept: application/vnd.github.html+json" -q '.body_html'` — GitHub
+trả về đúng thẻ `<img src="..." style="max-width: 100%;">` bọc trong `<a>`, tức **render inline thật**,
+không phải chỉ là link tải về. Toàn bộ quy trình chỉ dùng `gh` CLI đã login sẵn — **không cần browser,
+không cần cookie, không cần đăng nhập lại**. Cùng caveat repo private như `publish.mjs` ở trên: chỉ người
+xem đã đăng nhập GitHub với quyền vào repo mới thấy ảnh render — `curl` ẩn danh vẫn 404.
+
+**Không dùng cho việc này (đã thử, KHÔNG hoạt động trong sandbox agent):** import cookie trình duyệt thật
+(Edge/Chrome) vào một headless session rồi paste/upload ảnh qua trình duyệt — về lý thuyết đúng hướng
+"Claude-in-Chrome", nhưng trong môi trường sandbox của agent thì bước decrypt cookie/khởi động server
+trình duyệt headed **crash lặp lại**, và tiến trình đó **không giữ được sống giữa các lệnh riêng biệt**
+của agent. Đừng đi hướng này để "tự động hoá upload ảnh GitHub" — dùng `gh release upload` ở trên, rẻ
+hơn, không phụ thuộc trình duyệt, và đã verify hoạt động.
+
 ### Bước 3e — Test theo test case (Mode 2): `testcase-parse.mjs` + `testcase-report.mjs`
 
 **Mode 1** (Bước 3b/3c/3d ở trên — chỉ chụp evidence theo 1 flow đã viết) **vẫn giữ nguyên, không đổi**. Mode 2 là một
