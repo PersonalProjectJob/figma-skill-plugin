@@ -1,0 +1,5 @@
+{
+  "name": "agent-team-plugin",
+  "version": "1.0.0",
+  "description": "Điều phối một nhóm AI coding agent cùng làm một task rồi phản biện chéo — N phương án song song trên workspace cách ly, bài kiểm do một agent mù viết (tác giả không soạn đề thi mình sẽ thi), trọng tài khác người viết code, verifier không có tool ghi. Kèm 2 cổng vào để biết khi nào KHÔNG nên gọi team, và ghi chú baseline test đã bác một failure mode tưởng là có."
+}
